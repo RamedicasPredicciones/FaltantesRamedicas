@@ -33,8 +33,6 @@ st.markdown(
     unsafe_allow_html=True
 )
 
-# Resto de tu código...
-
 # Cargar archivos privados de manera segura
 @st.cache_data
 def load_private_files():
@@ -87,6 +85,11 @@ def procesar_faltantes(faltantes_df, maestro_moleculas_df, inventario_api_df, co
         how='inner'
     )
 
+    # Seleccionar columnas adicionales basadas en la selección del usuario
+    for columna in columnas_seleccionadas:
+        if columna in inventario_api_df.columns:
+            alternativas_disponibles_df[columna] = alternativas_disponibles_df[f'{columna}_inventario']
+    
     # Ordenar por 'codart_faltante' y 'opcion_alternativa' para priorizar las mejores opciones
     alternativas_disponibles_df.sort_values(by=['codart_faltante', 'opcion_alternativa'], inplace=True)
 
@@ -106,24 +109,11 @@ def procesar_faltantes(faltantes_df, maestro_moleculas_df, inventario_api_df, co
 
     resultado_final_df = pd.DataFrame(mejores_alternativas)
 
-    # Seleccionar las columnas finales deseadas
+    # Seleccionar las columnas finales deseadas, asegurándonos de que todas existan
     columnas_finales = ['cur', 'codart', 'faltante', 'codart_faltante', 'opcion_alternativa', 'codart_alternativa', 'unidadespresentacionlote', 'bodega']
-    
-    # Agregar las columnas seleccionadas por el usuario
-    if 'nomArt' in columnas_seleccionadas:
-        columnas_finales.append('nomArt')
-    if 'presentacionArt' in columnas_seleccionadas:
-        columnas_finales.append('presentacionArt')
-    if 'descontinuado' in columnas_seleccionadas:
-        columnas_finales.append('descontinuado')
-    if 'numlote' in columnas_seleccionadas:
-        columnas_finales.append('numlote')
-    if 'fechavencelote' in columnas_seleccionadas:
-        columnas_finales.append('fechavencelote')
-    if 'unidadesLote' in columnas_seleccionadas:
-        columnas_finales.append('unidadesLote')
-    if 'bodega' in columnas_seleccionadas:
-        columnas_finales.append('bodega')
+    for columna in columnas_seleccionadas:
+        if columna in resultado_final_df.columns:
+            columnas_finales.append(columna)
 
     resultado_final_df = resultado_final_df[columnas_finales]
 
@@ -138,14 +128,9 @@ if uploaded_file:
     faltantes_df = pd.read_excel(uploaded_file)
     maestro_moleculas_df, inventario_api_df = load_private_files()
 
-    # Selección múltiple para columnas adicionales
-    columnas_disponibles = [
-        'nomArt', 'presentacionArt', 'descontinuado', 'numlote', 'fechavencelote', 'unidadesLote', 'bodega'
-    ]
-    columnas_seleccionadas = st.multiselect(
-        'Selecciona las columnas adicionales a incluir:',
-        columnas_disponibles
-    )
+    # Opciones para agregar columnas del inventario
+    columnas_disponibles = ['nomart', 'presentacionart', 'descontinuado', 'numlote', 'fechavencelote', 'unidadeslote', 'bodega']
+    columnas_seleccionadas = st.multiselect("Selecciona las columnas que deseas agregar", columnas_disponibles)
 
     resultado_final_df = procesar_faltantes(faltantes_df, maestro_moleculas_df, inventario_api_df, columnas_seleccionadas)
 
