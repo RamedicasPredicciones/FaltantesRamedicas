@@ -85,11 +85,12 @@ def procesar_faltantes(faltantes_df, maestro_moleculas_df, inventario_api_df, co
         how='inner'
     )
 
-    # Verificar si las columnas seleccionadas están presentes
+    # Verificar si las columnas seleccionadas están presentes en inventario_api_df
     for columna in columnas_seleccionadas:
-        if columna in inventario_api_df.columns:
-            # Asegurarse de que las columnas estén correctamente alineadas
-            alternativas_disponibles_df[columna] = alternativas_disponibles_df.get(f'{columna}_inventario', None)
+        # Verificamos si la columna existe en el DataFrame del inventario
+        if columna.lower() in inventario_api_df.columns:
+            # Si la columna existe, la agregamos al DataFrame
+            alternativas_disponibles_df[columna] = alternativas_disponibles_df[f'{columna.lower()}_inventario']
 
     # Ordenar por 'codart_faltante' y 'opcion_alternativa' para priorizar las mejores opciones
     alternativas_disponibles_df.sort_values(by=['codart_faltante', 'opcion_alternativa'], inplace=True)
@@ -113,8 +114,8 @@ def procesar_faltantes(faltantes_df, maestro_moleculas_df, inventario_api_df, co
     # Seleccionar las columnas finales deseadas, asegurándonos de que todas existan
     columnas_finales = ['cur', 'codart', 'faltante', 'codart_faltante', 'opcion_alternativa', 'codart_alternativa', 'unidadespresentacionlote']
     for columna in columnas_seleccionadas:
-        if columna in resultado_final_df.columns:
-            columnas_finales.append(columna)
+        if columna.lower() in resultado_final_df.columns:
+            columnas_finales.append(columna.lower())
 
     resultado_final_df = resultado_final_df[columnas_finales]
 
