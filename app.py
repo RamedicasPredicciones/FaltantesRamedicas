@@ -110,18 +110,18 @@ def procesar_faltantes(faltantes_df, maestro_moleculas_df, inventario_api_df, co
     columnas_finales = ['cur', 'codart', 'faltante', 'codart_faltante', 'opcion_alternativa', 'codart_alternativa', 'unidadespresentacionlote', 'bodega']
     
     # Agregar las columnas seleccionadas por el usuario
-    if 'nomart' in columnas_seleccionadas:
-        columnas_finales.append('nomart')
-    if 'presentacionart' in columnas_seleccionadas:
-        columnas_finales.append('presentacionart')
+    if 'nomArt' in columnas_seleccionadas:
+        columnas_finales.append('nomArt')
+    if 'presentacionArt' in columnas_seleccionadas:
+        columnas_finales.append('presentacionArt')
     if 'descontinuado' in columnas_seleccionadas:
         columnas_finales.append('descontinuado')
     if 'numlote' in columnas_seleccionadas:
         columnas_finales.append('numlote')
     if 'fechavencelote' in columnas_seleccionadas:
         columnas_finales.append('fechavencelote')
-    if 'unidadeslote' in columnas_seleccionadas:
-        columnas_finales.append('unidadeslote')
+    if 'unidadesLote' in columnas_seleccionadas:
+        columnas_finales.append('unidadesLote')
     if 'bodega' in columnas_seleccionadas:
         columnas_finales.append('bodega')
 
@@ -140,7 +140,7 @@ if uploaded_file:
 
     # Selección múltiple para columnas adicionales
     columnas_disponibles = [
-        'nomart', 'presentacionart', 'descontinuado', 'numlote', 'fechavencelote', 'unidadeslote', 'bodega'
+        'nomArt', 'presentacionArt', 'descontinuado', 'numlote', 'fechavencelote', 'unidadesLote', 'bodega'
     ]
     columnas_seleccionadas = st.multiselect(
         'Selecciona las columnas adicionales a incluir:',
