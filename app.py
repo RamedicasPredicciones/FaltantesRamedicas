@@ -87,14 +87,16 @@ def procesar_faltantes(faltantes_df, maestro_moleculas_df, inventario_api_df, co
 
     # Verificar si las columnas seleccionadas están presentes en inventario_api_df
     for columna in columnas_seleccionadas:
-        # Verificamos si la columna existe en el DataFrame del inventario y si está basada en codart_alternativa
-        if columna.lower() in inventario_api_df.columns:
+        columna_lower = columna.lower()
+        if columna_lower in inventario_api_df.columns:
             # Si la columna existe, la agregamos basándonos en 'codart_alternativa'
             alternativas_disponibles_df[columna] = alternativas_disponibles_df.merge(
-                inventario_api_df[['codart_alternativa', columna.lower()]],
+                inventario_api_df[['codart_alternativa', columna_lower]],
                 on='codart_alternativa',
                 how='left'
-            )[columna.lower()]
+            )[columna_lower]
+        else:
+            st.warning(f"Columna '{columna}' no encontrada en el inventario.")
 
     # Ordenar por 'codart_faltante' y 'opcion_alternativa' para priorizar las mejores opciones
     alternativas_disponibles_df.sort_values(by=['codart_faltante', 'opcion_alternativa'], inplace=True)
@@ -157,4 +159,3 @@ if uploaded_file:
         file_name='alternativas_disponibles.xlsx',
         mime='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
     )
-
