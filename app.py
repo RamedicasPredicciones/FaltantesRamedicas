@@ -51,6 +51,9 @@ def procesar_faltantes(faltantes_df, maestro_moleculas_df, inventario_api_df, co
     maestro_moleculas_df.columns = maestro_moleculas_df.columns.str.lower().str.strip()
     inventario_api_df.columns = inventario_api_df.columns.str.lower().str.strip()
 
+    # Verificación de columnas en inventario_api_df
+    st.write("Columnas disponibles en inventario_api_df:", inventario_api_df.columns.tolist())
+
     cur_faltantes = faltantes_df['cur'].unique()
     codArt_faltantes = faltantes_df['codart'].unique()
 
