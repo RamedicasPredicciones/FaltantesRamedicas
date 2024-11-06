@@ -33,9 +33,9 @@ def procesar_faltantes(faltantes_df, maestro_moleculas_df, inventario_api_df):
         suffixes=('_alternativas', '_inventario')
     )
 
-    # Cambié 'cantidad' por 'unidadesLote'
+    # Cambié 'unidadeslote' por 'unidadespresentacionlote'
     alternativas_disponibles_df = alternativas_inventario_df[
-        (alternativas_inventario_df['unidadeslote'] > 0) &
+        (alternativas_inventario_df['unidadespresentacionlote'] > 0) &
         (alternativas_inventario_df['codart_alternativas'].isin(codArt_faltantes))
     ]
 
@@ -63,18 +63,18 @@ def procesar_faltantes(faltantes_df, maestro_moleculas_df, inventario_api_df):
         faltante_cantidad = group['faltante'].iloc[0]
 
         # Filtrar opciones que tienen cantidad mayor o igual al faltante y obtener la mejor
-        mejor_opcion = group[group['unidadeslote'] >= faltante_cantidad].head(1)
+        mejor_opcion = group[group['unidadespresentacionlote'] >= faltante_cantidad].head(1)
 
         if mejor_opcion.empty:
             # Si no hay opción suficiente, tomar la mayor cantidad disponible
-            mejor_opcion = group.nlargest(1, 'unidadeslote')
+            mejor_opcion = group.nlargest(1, 'unidadespresentacionlote')
 
         mejores_alternativas.append(mejor_opcion.iloc[0])
 
     resultado_final_df = pd.DataFrame(mejores_alternativas)
 
     # Seleccionar las columnas finales deseadas
-    columnas_finales = ['cur', 'codart', 'faltante', 'codart_faltante', 'opcion_alternativa', 'codart_alternativa', 'unidadeslote', 'bodega']
+    columnas_finales = ['cur', 'codart', 'faltante', 'codart_faltante', 'opcion_alternativa', 'codart_alternativa', 'unidadespresentacionlote', 'bodega']
     resultado_final_df = resultado_final_df[columnas_finales]
 
     return resultado_final_df
