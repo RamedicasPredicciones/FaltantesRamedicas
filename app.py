@@ -128,8 +128,8 @@ if uploaded_file:
     faltantes_df = pd.read_excel(uploaded_file)
     maestro_moleculas_df, inventario_api_df = load_private_files()
 
-    # Opciones para agregar columnas del inventario
-    columnas_disponibles = ['nomart', 'presentacionart', 'descontinuado', 'numlote', 'fechavencelote', 'unidadeslote', 'bodega']
+    # Opciones para agregar columnas del inventario con los nombres exactos
+    columnas_disponibles = ['nomArt', 'presentacionArt', 'descontinuado', 'numlote', 'fechavencelote', 'unidadesLote', 'bodega']
     columnas_seleccionadas = st.multiselect("Selecciona las columnas que deseas agregar", columnas_disponibles)
 
     resultado_final_df = procesar_faltantes(faltantes_df, maestro_moleculas_df, inventario_api_df, columnas_seleccionadas)
