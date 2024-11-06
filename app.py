@@ -2,6 +2,37 @@ import streamlit as st
 import pandas as pd
 from io import BytesIO
 
+# Agregar fondo personalizado con CSS
+st.markdown(
+    """
+    <style>
+    body {
+        background-color: #f2f2f2;  # Color de fondo de la página
+        color: #333;  # Color del texto
+    }
+    .stButton>button {
+        background-color: #4CAF50;  # Botón con color verde
+        color: white;  # Color del texto del botón
+        border: none;
+        border-radius: 5px;
+        padding: 10px 20px;
+        font-size: 16px;
+    }
+    .stButton>button:hover {
+        background-color: #45a049;  # Hover color más oscuro
+    }
+    .stTitle {
+        color: #2a6a6a;  # Color del título
+    }
+    .stDataFrame {
+        background-color: #ffffff;  # Fondo blanco para las tablas
+        border-radius: 10px;  # Bordes redondeados
+    }
+    </style>
+    """,
+    unsafe_allow_html=True
+)
+
 # Cargar archivos privados de manera segura
 @st.cache_data
 def load_private_files():
@@ -15,7 +46,7 @@ def load_private_files():
     return maestro_moleculas_df, inventario_api_df
 
 # Función para procesar el archivo de faltantes y generar el resultado
-def procesar_faltantes(faltantes_df, maestro_moleculas_df, inventario_api_df):
+def procesar_faltantes(faltantes_df, maestro_moleculas_df, inventario_api_df, columnas_seleccionadas):
     faltantes_df.columns = faltantes_df.columns.str.lower().str.strip()
     maestro_moleculas_df.columns = maestro_moleculas_df.columns.str.lower().str.strip()
     inventario_api_df.columns = inventario_api_df.columns.str.lower().str.strip()
@@ -39,13 +70,13 @@ def procesar_faltantes(faltantes_df, maestro_moleculas_df, inventario_api_df):
         (alternativas_inventario_df['codart_alternativas'].isin(codArt_faltantes))
     ]
 
-    alternativas_disponibles_df.rename(columns={
+    alternativas_disponibles_df.rename(columns={ 
         'codart_alternativas': 'codart_faltante',
         'opcion_inventario': 'opcion_alternativa',
         'codart_inventario': 'codart_alternativa'
     }, inplace=True)
 
-    # Agregar la columna faltante al hacer merge
+    # Agregar la columna `faltante` al hacer merge
     alternativas_disponibles_df = pd.merge(
         faltantes_df[['cur', 'codart', 'faltante']],
         alternativas_disponibles_df,
@@ -53,6 +84,17 @@ def procesar_faltantes(faltantes_df, maestro_moleculas_df, inventario_api_df):
         right_on=['cur', 'codart_faltante'],
         how='inner'
     )
+
+    # Verificar si las columnas seleccionadas están presentes en inventario_api_df
+    for columna in columnas_seleccionadas:
+        # Verificamos si la columna existe en el DataFrame del inventario y si está basada en codart_alternativa
+        if columna.lower() in inventario_api_df.columns:
+            # Si la columna existe, la agregamos basándonos en 'codart_alternativa'
+            alternativas_disponibles_df[columna] = alternativas_disponibles_df.merge(
+                inventario_api_df[['codart_alternativa', columna.lower()]],
+                on='codart_alternativa',
+                how='left'
+            )[columna.lower()]
 
     # Ordenar por 'codart_faltante' y 'opcion_alternativa' para priorizar las mejores opciones
     alternativas_disponibles_df.sort_values(by=['codart_faltante', 'opcion_alternativa'], inplace=True)
@@ -73,8 +115,12 @@ def procesar_faltantes(faltantes_df, maestro_moleculas_df, inventario_api_df):
 
     resultado_final_df = pd.DataFrame(mejores_alternativas)
 
-    # Seleccionar las columnas finales deseadas
-    columnas_finales = ['cur', 'codart', 'faltante', 'codart_faltante', 'opcion_alternativa', 'codart_alternativa', 'unidadespresentacionlote', 'bodega']
+    # Seleccionar las columnas finales deseadas, asegurándonos de que todas existan
+    columnas_finales = ['cur', 'codart', 'faltante', 'codart_faltante', 'opcion_alternativa', 'codart_alternativa', 'unidadespresentacionlote']
+    for columna in columnas_seleccionadas:
+        if columna.lower() in resultado_final_df.columns:
+            columnas_finales.append(columna.lower())
+
     resultado_final_df = resultado_final_df[columnas_finales]
 
     return resultado_final_df
@@ -88,7 +134,11 @@ if uploaded_file:
     faltantes_df = pd.read_excel(uploaded_file)
     maestro_moleculas_df, inventario_api_df = load_private_files()
 
-    resultado_final_df = procesar_faltantes(faltantes_df, maestro_moleculas_df, inventario_api_df)
+    # Opciones para agregar columnas del inventario con los nombres exactos
+    columnas_disponibles = ['nomArt', 'presentacionArt', 'descontinuado', 'numlote', 'fechavencelote', 'unidadesLote']
+    columnas_seleccionadas = st.multiselect("Selecciona las columnas que deseas agregar", columnas_disponibles)
+
+    resultado_final_df = procesar_faltantes(faltantes_df, maestro_moleculas_df, inventario_api_df, columnas_seleccionadas)
 
     st.write("Archivo procesado correctamente.")
     st.dataframe(resultado_final_df)
@@ -107,3 +157,4 @@ if uploaded_file:
         file_name='alternativas_disponibles.xlsx',
         mime='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
     )
+
