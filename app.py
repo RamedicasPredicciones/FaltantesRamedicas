@@ -2,6 +2,39 @@ import streamlit as st
 import pandas as pd
 from io import BytesIO
 
+# Agregar fondo personalizado con CSS
+st.markdown(
+    """
+    <style>
+    body {
+        background-color: #f2f2f2;  # Color de fondo de la página
+        color: #333;  # Color del texto
+    }
+    .stButton>button {
+        background-color: #4CAF50;  # Botón con color verde
+        color: white;  # Color del texto del botón
+        border: none;
+        border-radius: 5px;
+        padding: 10px 20px;
+        font-size: 16px;
+    }
+    .stButton>button:hover {
+        background-color: #45a049;  # Hover color más oscuro
+    }
+    .stTitle {
+        color: #2a6a6a;  # Color del título
+    }
+    .stDataFrame {
+        background-color: #ffffff;  # Fondo blanco para las tablas
+        border-radius: 10px;  # Bordes redondeados
+    }
+    </style>
+    """,
+    unsafe_allow_html=True
+)
+
+# Resto de tu código...
+
 # Cargar archivos privados de manera segura
 @st.cache_data
 def load_private_files():
