@@ -110,7 +110,7 @@ def procesar_faltantes(faltantes_df, maestro_moleculas_df, inventario_api_df, co
     resultado_final_df = pd.DataFrame(mejores_alternativas)
 
     # Seleccionar las columnas finales deseadas, asegurándonos de que todas existan
-    columnas_finales = ['cur', 'codart', 'faltante', 'codart_faltante', 'opcion_alternativa', 'codart_alternativa', 'unidadespresentacionlote', 'bodega']
+    columnas_finales = ['cur', 'codart', 'faltante', 'codart_faltante', 'opcion_alternativa', 'codart_alternativa', 'unidadespresentacionlote']
     for columna in columnas_seleccionadas:
         if columna in resultado_final_df.columns:
             columnas_finales.append(columna)
@@ -129,7 +129,7 @@ if uploaded_file:
     maestro_moleculas_df, inventario_api_df = load_private_files()
 
     # Opciones para agregar columnas del inventario con los nombres exactos
-    columnas_disponibles = ['nomArt', 'presentacionArt', 'descontinuado', 'numlote', 'fechavencelote', 'unidadesLote', 'bodega']
+    columnas_disponibles = ['nomArt', 'presentacionArt', 'descontinuado', 'numlote', 'fechavencelote', 'unidadesLote']
     columnas_seleccionadas = st.multiselect("Selecciona las columnas que deseas agregar", columnas_disponibles)
 
     resultado_final_df = procesar_faltantes(faltantes_df, maestro_moleculas_df, inventario_api_df, columnas_seleccionadas)
