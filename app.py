@@ -85,11 +85,12 @@ def procesar_faltantes(faltantes_df, maestro_moleculas_df, inventario_api_df, co
         how='inner'
     )
 
-    # Seleccionar columnas adicionales basadas en la selección del usuario
+    # Verificar si las columnas seleccionadas están presentes
     for columna in columnas_seleccionadas:
         if columna in inventario_api_df.columns:
-            alternativas_disponibles_df[columna] = alternativas_disponibles_df[f'{columna}_inventario']
-    
+            # Asegurarse de que las columnas estén correctamente alineadas
+            alternativas_disponibles_df[columna] = alternativas_disponibles_df.get(f'{columna}_inventario', None)
+
     # Ordenar por 'codart_faltante' y 'opcion_alternativa' para priorizar las mejores opciones
     alternativas_disponibles_df.sort_values(by=['codart_faltante', 'opcion_alternativa'], inplace=True)
 
