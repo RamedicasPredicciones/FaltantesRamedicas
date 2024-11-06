@@ -20,7 +20,7 @@ def procesar_faltantes(faltantes_df, maestro_moleculas_df, inventario_api_df):
     inventario_api_df.columns = inventario_api_df.columns.str.lower().str.strip()
 
     cur_faltantes = faltantes_df['cur'].unique()
-    codArt_faltantes = faltantes_df['codArt'].unique()
+    codArt_faltantes = faltantes_df['codart'].unique()
 
     alternativas_df = maestro_moleculas_df[maestro_moleculas_df['cur'].isin(cur_faltantes)]
 
