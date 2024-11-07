@@ -2,60 +2,69 @@ import streamlit as st
 import pandas as pd
 from io import BytesIO
 
-# Cargar archivo de inventario desde Google Drive
+# Cargar archivos privados de manera segura
 @st.cache_data
-def load_inventory_file():
+def load_private_files():
+    # Enlace directo para Inventario desde Google Drive
     inventario_url = "https://drive.google.com/uc?export=download&id=1WV4la88gTl6OUgqQ5UM0IztNBn_k4VrC"
+    
+    # Cargar ambos archivos, uno desde Drive y el otro localmente
+    maestro_moleculas_df = pd.read_excel('Maestro_Moleculas.xlsx')
     inventario_api_df = pd.read_excel(inventario_url)
-    return inventario_api_df
+    
+    return maestro_moleculas_df, inventario_api_df
 
 # Función para procesar el archivo de faltantes y generar el resultado
-def procesar_faltantes(faltantes_df, inventario_api_df, columnas_adicionales):
+def procesar_faltantes(faltantes_df, maestro_moleculas_df, inventario_api_df, columnas_adicionales):
     # Normalizar nombres de columnas
     faltantes_df.columns = faltantes_df.columns.str.lower().str.strip()
+    maestro_moleculas_df.columns = maestro_moleculas_df.columns.str.lower().str.strip()
     inventario_api_df.columns = inventario_api_df.columns.str.lower().str.strip()
 
-    # Mostrar columnas y primeros registros para depuración
-    st.write("Columnas en faltantes_df:", faltantes_df.columns)
-    st.write("Primeras filas de faltantes_df:", faltantes_df.head())
-
-    st.write("Columnas en inventario_api_df:", inventario_api_df.columns)
-    st.write("Primeras filas de inventario_api_df:", inventario_api_df.head())
-
-    # Obtener los CUR únicos de productos con faltantes
+    # Obtener los CUR y codArt únicos de productos con faltantes
     cur_faltantes = faltantes_df['cur'].unique()
+    codart_faltantes = faltantes_df['codart'].unique()
 
-    # Filtrar el inventario para obtener registros con esos CUR y disponibilidad mayor a cero
-    alternativas_inventario_df = inventario_api_df[
-        (inventario_api_df['cur'].isin(cur_faltantes)) &
-        (inventario_api_df['unidadespresentacionlote'] > 0)
+    # Filtrar el archivo Maestro_Moleculas para obtener registros con esos CUR
+    alternativas_df = maestro_moleculas_df[maestro_moleculas_df['cur'].isin(cur_faltantes)]
+
+    # Cruzar estas alternativas con el inventario para verificar disponibilidad
+    alternativas_inventario_df = pd.merge(
+        alternativas_df,
+        inventario_api_df,
+        on='cur',
+        how='inner',
+        suffixes=('_alternativas', '_inventario')
+    )
+
+    # Filtrar filas donde la cantidad en inventario sea mayor a cero y el codart esté en la lista de faltantes
+    alternativas_disponibles_df = alternativas_inventario_df[
+        (alternativas_inventario_df['unidadespresentacionlote'] > 0) &
+        (alternativas_inventario_df['codart_alternativas'].isin(codart_faltantes))
     ]
 
-    # Verificar si existen registros después del filtrado
-    st.write("Columnas en alternativas_inventario_df después del filtrado:", alternativas_inventario_df.columns)
-    st.write("Primeras filas de alternativas_inventario_df:", alternativas_inventario_df.head())
+    # Renombrar columnas para el archivo final
+    alternativas_disponibles_df.rename(columns={
+        'codart_alternativas': 'codart_faltante',
+        'opcion_inventario': 'opcion_alternativa',
+        'codart_inventario': 'codart_alternativa'
+    }, inplace=True)
 
     # Agregar la columna faltante al hacer merge
     alternativas_disponibles_df = pd.merge(
         faltantes_df[['cur', 'codart', 'faltante']],
-        alternativas_inventario_df,
-        on='cur',
+        alternativas_disponibles_df,
+        left_on=['cur', 'codart'],
+        right_on=['cur', 'codart_faltante'],
         how='inner'
     )
 
-    # Verificar si existen registros después del merge
-    st.write("Columnas en alternativas_disponibles_df después del merge:", alternativas_disponibles_df.columns)
-    st.write("Primeras filas de alternativas_disponibles_df:", alternativas_disponibles_df.head())
-
-    # Ordenar por 'codart' y cantidad para priorizar las mejores opciones
-    if 'codart' in alternativas_disponibles_df.columns and 'unidadespresentacionlote' in alternativas_disponibles_df.columns:
-        alternativas_disponibles_df.sort_values(by=['codart', 'unidadespresentacionlote'], ascending=[True, False], inplace=True)
-    else:
-        st.error("Error: Columnas 'codart' o 'unidadespresentacionlote' no están presentes en alternativas_disponibles_df.")
+    # Ordenar por 'codart_faltante' y 'opcion_alternativa' para priorizar las mejores opciones
+    alternativas_disponibles_df.sort_values(by=['codart_faltante', 'opcion_alternativa'], inplace=True)
 
     # Seleccionar la mejor alternativa para cada faltante
     mejores_alternativas = []
-    for codart_faltante, group in alternativas_disponibles_df.groupby('codart'):
+    for codart_faltante, group in alternativas_disponibles_df.groupby('codart_faltante'):
         faltante_cantidad = group['faltante'].iloc[0]
 
         # Filtrar opciones que tienen cantidad mayor o igual al faltante y obtener la mejor
@@ -70,7 +79,7 @@ def procesar_faltantes(faltantes_df, inventario_api_df, columnas_adicionales):
     resultado_final_df = pd.DataFrame(mejores_alternativas)
 
     # Seleccionar las columnas finales deseadas, incluyendo las columnas adicionales seleccionadas
-    columnas_finales = ['cur', 'codart', 'faltante', 'unidadespresentacionlote', 'bodega']
+    columnas_finales = ['cur', 'codart', 'faltante', 'codart_faltante', 'opcion_alternativa', 'codart_alternativa', 'unidadespresentacionlote', 'bodega']
     columnas_finales.extend([col.lower() for col in columnas_adicionales])
     
     # Filtrar solo las columnas que existen en el DataFrame
@@ -86,16 +95,16 @@ uploaded_file = st.file_uploader("Sube tu archivo de faltantes", type="xlsx")
 
 if uploaded_file:
     faltantes_df = pd.read_excel(uploaded_file)
-    inventario_api_df = load_inventory_file()
+    maestro_moleculas_df, inventario_api_df = load_private_files()
 
     # Seleccionar columnas adicionales para el archivo final
     columnas_adicionales = st.multiselect(
         "Selecciona columnas adicionales para incluir en el archivo final:",
-        options=["presentacionart", "numlote", "fechavencelote"],
+        options=["presentacionArt", "numlote", "fechavencelote"],
         default=[]
     )
 
-    resultado_final_df = procesar_faltantes(faltantes_df, inventario_api_df, columnas_adicionales)
+    resultado_final_df = procesar_faltantes(faltantes_df, maestro_moleculas_df, inventario_api_df, columnas_adicionales)
 
     st.write("Archivo procesado correctamente.")
     st.dataframe(resultado_final_df)
@@ -114,3 +123,4 @@ if uploaded_file:
         file_name='alternativas_disponibles.xlsx',
         mime='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
     )
+    
