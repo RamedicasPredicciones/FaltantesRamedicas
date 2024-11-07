@@ -15,6 +15,13 @@ def procesar_faltantes(faltantes_df, inventario_api_df, columnas_adicionales):
     faltantes_df.columns = faltantes_df.columns.str.lower().str.strip()
     inventario_api_df.columns = inventario_api_df.columns.str.lower().str.strip()
 
+    # Mostrar columnas y primeros registros para depuración
+    st.write("Columnas en faltantes_df:", faltantes_df.columns)
+    st.write("Primeras filas de faltantes_df:", faltantes_df.head())
+
+    st.write("Columnas en inventario_api_df:", inventario_api_df.columns)
+    st.write("Primeras filas de inventario_api_df:", inventario_api_df.head())
+
     # Obtener los CUR únicos de productos con faltantes
     cur_faltantes = faltantes_df['cur'].unique()
 
@@ -24,6 +31,10 @@ def procesar_faltantes(faltantes_df, inventario_api_df, columnas_adicionales):
         (inventario_api_df['unidadespresentacionlote'] > 0)
     ]
 
+    # Verificar si existen registros después del filtrado
+    st.write("Columnas en alternativas_inventario_df después del filtrado:", alternativas_inventario_df.columns)
+    st.write("Primeras filas de alternativas_inventario_df:", alternativas_inventario_df.head())
+
     # Agregar la columna faltante al hacer merge
     alternativas_disponibles_df = pd.merge(
         faltantes_df[['cur', 'codart', 'faltante']],
@@ -32,8 +43,15 @@ def procesar_faltantes(faltantes_df, inventario_api_df, columnas_adicionales):
         how='inner'
     )
 
+    # Verificar si existen registros después del merge
+    st.write("Columnas en alternativas_disponibles_df después del merge:", alternativas_disponibles_df.columns)
+    st.write("Primeras filas de alternativas_disponibles_df:", alternativas_disponibles_df.head())
+
     # Ordenar por 'codart' y cantidad para priorizar las mejores opciones
-    alternativas_disponibles_df.sort_values(by=['codart', 'unidadespresentacionlote'], ascending=[True, False], inplace=True)
+    if 'codart' in alternativas_disponibles_df.columns and 'unidadespresentacionlote' in alternativas_disponibles_df.columns:
+        alternativas_disponibles_df.sort_values(by=['codart', 'unidadespresentacionlote'], ascending=[True, False], inplace=True)
+    else:
+        st.error("Error: Columnas 'codart' o 'unidadespresentacionlote' no están presentes en alternativas_disponibles_df.")
 
     # Seleccionar la mejor alternativa para cada faltante
     mejores_alternativas = []
