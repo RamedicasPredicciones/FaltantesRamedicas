@@ -21,9 +21,8 @@ def procesar_faltantes(faltantes_df, maestro_moleculas_df, inventario_api_df, co
     maestro_moleculas_df.columns = maestro_moleculas_df.columns.str.lower().str.strip()
     inventario_api_df.columns = inventario_api_df.columns.str.lower().str.strip()
 
-    # Obtener los CUR y codArt únicos de productos con faltantes
+    # Obtener los CUR únicos de productos con faltantes
     cur_faltantes = faltantes_df['cur'].unique()
-    codart_faltantes = faltantes_df['codart'].unique()
 
     # Filtrar el archivo Maestro_Moleculas para obtener registros con esos CUR
     alternativas_df = maestro_moleculas_df[maestro_moleculas_df['cur'].isin(cur_faltantes)]
@@ -39,8 +38,7 @@ def procesar_faltantes(faltantes_df, maestro_moleculas_df, inventario_api_df, co
 
     # Filtrar filas donde la cantidad en inventario sea mayor a cero y el codart esté en la lista de faltantes
     alternativas_disponibles_df = alternativas_inventario_df[
-        (alternativas_inventario_df['unidadespresentacionlote'] > 0) &
-        (alternativas_inventario_df['codart_alternativas'].isin(codart_faltantes))
+        (alternativas_inventario_df['unidadespresentacionlote'] > 0)
     ]
 
     # Renombrar columnas para el archivo final
@@ -52,19 +50,18 @@ def procesar_faltantes(faltantes_df, maestro_moleculas_df, inventario_api_df, co
 
     # Agregar la columna faltante al hacer merge
     alternativas_disponibles_df = pd.merge(
-        faltantes_df[['cur', 'codart', 'faltante']],
+        faltantes_df[['cur', 'faltante']],
         alternativas_disponibles_df,
-        left_on=['cur', 'codart'],
-        right_on=['cur', 'codart_faltante'],
+        on='cur',
         how='inner'
     )
 
-    # Ordenar por 'codart_faltante' y 'opcion_alternativa' para priorizar las mejores opciones
-    alternativas_disponibles_df.sort_values(by=['codart_faltante', 'opcion_alternativa'], inplace=True)
+    # Ordenar por 'cur' y 'opcion_alternativa' para priorizar las mejores opciones
+    alternativas_disponibles_df.sort_values(by=['cur', 'opcion_alternativa'], inplace=True)
 
     # Seleccionar la mejor alternativa para cada faltante
     mejores_alternativas = []
-    for codart_faltante, group in alternativas_disponibles_df.groupby('codart_faltante'):
+    for cur, group in alternativas_disponibles_df.groupby('cur'):
         faltante_cantidad = group['faltante'].iloc[0]
 
         # Filtrar opciones que tienen cantidad mayor o igual al faltante y obtener la mejor
@@ -79,7 +76,7 @@ def procesar_faltantes(faltantes_df, maestro_moleculas_df, inventario_api_df, co
     resultado_final_df = pd.DataFrame(mejores_alternativas)
 
     # Seleccionar las columnas finales deseadas, incluyendo las columnas adicionales seleccionadas
-    columnas_finales = ['cur', 'codart', 'faltante', 'codart_faltante', 'opcion_alternativa', 'codart_alternativa', 'unidadespresentacionlote', 'bodega']
+    columnas_finales = ['cur', 'faltante', 'codart_faltante', 'opcion_alternativa', 'codart_alternativa', 'unidadespresentacionlote', 'bodega']
     columnas_finales.extend([col.lower() for col in columnas_adicionales])
     
     # Filtrar solo las columnas que existen en el DataFrame
@@ -123,3 +120,4 @@ if uploaded_file:
         file_name='alternativas_disponibles.xlsx',
         mime='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
     )
+
