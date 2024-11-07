@@ -100,7 +100,7 @@ if uploaded_file:
     # Seleccionar columnas adicionales para el archivo final
     columnas_adicionales = st.multiselect(
         "Selecciona columnas adicionales para incluir en el archivo final:",
-        options=["nomArt", "presentacionArt", "numlote", "fechavencelote"],
+        options=["presentacionArt", "numlote", "fechavencelote"],
         default=[]
     )
 
