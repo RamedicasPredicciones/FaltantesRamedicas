@@ -74,12 +74,15 @@ def procesar_faltantes(faltantes_df, maestro_moleculas_df, inventario_api_df, co
             # Si no hay opción suficiente, tomar la mayor cantidad disponible
             mejor_opcion = group.nlargest(1, 'unidadespresentacionlote')
 
-        mejores_alternativas.append(mejor_opcion.iloc[0])
+        # Solo añadir si realmente hay una alternativa válida
+        if not mejor_opcion.empty:
+            mejores_alternativas.append(mejor_opcion.iloc[0])
 
+    # Crear DataFrame de resultados con alternativas válidas
     resultado_final_df = pd.DataFrame(mejores_alternativas)
 
     # Seleccionar las columnas finales deseadas, incluyendo las columnas adicionales seleccionadas
-    columnas_finales = ['cur', 'codart', 'faltante', 'codart_faltante', 'opcion_alternativa', 'codart_alternativa', 'unidadespresentacionlote', 'bodega']
+    columnas_finales = ['cur', 'faltante', 'codart_faltante', 'opcion_alternativa', 'codart_alternativa', 'unidadespresentacionlote', 'bodega']
     columnas_finales.extend([col.lower() for col in columnas_adicionales])
     
     # Filtrar solo las columnas que existen en el DataFrame
