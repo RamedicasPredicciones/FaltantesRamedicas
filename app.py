@@ -33,7 +33,7 @@ def procesar_faltantes(faltantes_df, maestro_moleculas_df, inventario_api_df, co
         alternativas_df,
         inventario_api_df,
         on='cur',
-        how='inner',
+        how='inner',  # Utilizar 'inner' para descartar CUR sin inventario
         suffixes=('_alternativas', '_inventario')
     )
 
@@ -56,7 +56,7 @@ def procesar_faltantes(faltantes_df, maestro_moleculas_df, inventario_api_df, co
         alternativas_disponibles_df,
         left_on=['cur', 'codart'],
         right_on=['cur', 'codart_faltante'],
-        how='inner'
+        how='inner'  # Utilizar 'inner' para descartar CUR sin alternativas disponibles
     )
 
     # Ordenar por 'codart_faltante' y 'opcion_alternativa' para priorizar las mejores opciones
@@ -74,12 +74,15 @@ def procesar_faltantes(faltantes_df, maestro_moleculas_df, inventario_api_df, co
             # Si no hay opción suficiente, tomar la mayor cantidad disponible
             mejor_opcion = group.nlargest(1, 'unidadespresentacionlote')
 
-        mejores_alternativas.append(mejor_opcion.iloc[0])
+        # Solo añadir si realmente hay una alternativa válida
+        if not mejor_opcion.empty:
+            mejores_alternativas.append(mejor_opcion.iloc[0])
 
+    # Crear DataFrame de resultados con alternativas válidas
     resultado_final_df = pd.DataFrame(mejores_alternativas)
 
     # Seleccionar las columnas finales deseadas, incluyendo las columnas adicionales seleccionadas
-    columnas_finales = ['cur', 'codart', 'faltante', 'codart_faltante', 'opcion_alternativa', 'codart_alternativa', 'unidadespresentacionlote', 'bodega']
+    columnas_finales = ['cur', 'faltante', 'codart_faltante', 'opcion_alternativa', 'codart_alternativa', 'unidadespresentacionlote', 'bodega']
     columnas_finales.extend([col.lower() for col in columnas_adicionales])
     
     # Filtrar solo las columnas que existen en el DataFrame
