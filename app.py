@@ -21,8 +21,9 @@ def procesar_faltantes(faltantes_df, maestro_moleculas_df, inventario_api_df, co
     maestro_moleculas_df.columns = maestro_moleculas_df.columns.str.lower().str.strip()
     inventario_api_df.columns = inventario_api_df.columns.str.lower().str.strip()
 
-    # Obtener los CUR únicos de productos con faltantes
+    # Obtener los CUR y codArt únicos de productos con faltantes
     cur_faltantes = faltantes_df['cur'].unique()
+    codart_faltantes = faltantes_df['codart'].unique()
 
     # Filtrar el archivo Maestro_Moleculas para obtener registros con esos CUR
     alternativas_df = maestro_moleculas_df[maestro_moleculas_df['cur'].isin(cur_faltantes)]
@@ -32,30 +33,38 @@ def procesar_faltantes(faltantes_df, maestro_moleculas_df, inventario_api_df, co
         alternativas_df,
         inventario_api_df,
         on='cur',
-        how='inner',  # 'inner' para descartar CUR sin inventario
+        how='inner',
         suffixes=('_alternativas', '_inventario')
     )
 
-    # Filtrar filas donde la cantidad en inventario sea mayor a cero
+    # Filtrar filas donde la cantidad en inventario sea mayor a cero y el codart esté en la lista de faltantes
     alternativas_disponibles_df = alternativas_inventario_df[
-        alternativas_inventario_df['unidadespresentacionlote'] > 0
+        (alternativas_inventario_df['unidadespresentacionlote'] > 0) &
+        (alternativas_inventario_df['codart_alternativas'].isin(codart_faltantes))
     ]
 
-    # Unir los faltantes con las alternativas disponibles, ignorando los CUR sin inventario
+    # Renombrar columnas para el archivo final
+    alternativas_disponibles_df.rename(columns={
+        'codart_alternativas': 'codart_faltante',
+        'opcion_inventario': 'opcion_alternativa',
+        'codart_inventario': 'codart_alternativa'
+    }, inplace=True)
+
+    # Agregar la columna faltante al hacer merge
     alternativas_disponibles_df = pd.merge(
         faltantes_df[['cur', 'codart', 'faltante']],
         alternativas_disponibles_df,
-        left_on=['cur'],
-        right_on=['cur'],
-        how='inner'  # 'inner' para asegurar que solo incluya registros con alternativas válidas
+        left_on=['cur', 'codart'],
+        right_on=['cur', 'codart_faltante'],
+        how='inner'
     )
 
-    # Ordenar por 'cur' y 'unidadespresentacionlote' para priorizar las mejores opciones
-    alternativas_disponibles_df.sort_values(by=['cur', 'unidadespresentacionlote'], ascending=[True, False], inplace=True)
+    # Ordenar por 'codart_faltante' y 'opcion_alternativa' para priorizar las mejores opciones
+    alternativas_disponibles_df.sort_values(by=['codart_faltante', 'opcion_alternativa'], inplace=True)
 
-    # Seleccionar la mejor alternativa para cada `cur`
+    # Seleccionar la mejor alternativa para cada faltante
     mejores_alternativas = []
-    for cur, group in alternativas_disponibles_df.groupby('cur'):
+    for codart_faltante, group in alternativas_disponibles_df.groupby('codart_faltante'):
         faltante_cantidad = group['faltante'].iloc[0]
 
         # Filtrar opciones que tienen cantidad mayor o igual al faltante y obtener la mejor
@@ -65,15 +74,12 @@ def procesar_faltantes(faltantes_df, maestro_moleculas_df, inventario_api_df, co
             # Si no hay opción suficiente, tomar la mayor cantidad disponible
             mejor_opcion = group.nlargest(1, 'unidadespresentacionlote')
 
-        # Solo añadir si realmente hay una alternativa válida
-        if not mejor_opcion.empty:
-            mejores_alternativas.append(mejor_opcion.iloc[0])
+        mejores_alternativas.append(mejor_opcion.iloc[0])
 
-    # Crear DataFrame de resultados con alternativas válidas
     resultado_final_df = pd.DataFrame(mejores_alternativas)
 
     # Seleccionar las columnas finales deseadas, incluyendo las columnas adicionales seleccionadas
-    columnas_finales = ['cur', 'faltante', 'codart', 'unidadespresentacionlote', 'bodega']
+    columnas_finales = ['cur', 'codart', 'faltante', 'codart_faltante', 'opcion_alternativa', 'codart_alternativa', 'unidadespresentacionlote', 'bodega']
     columnas_finales.extend([col.lower() for col in columnas_adicionales])
     
     # Filtrar solo las columnas que existen en el DataFrame
