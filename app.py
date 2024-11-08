@@ -6,7 +6,7 @@ from io import BytesIO
 @st.cache_data
 def load_private_files():
     # Enlace directo para Inventario desde Google Drive
-    inventario_url = "https://docs.google.com/spreadsheets/d/1WV4la88gTl6OUgqQ5UM0IztNBn_k4VrC?rtpof=true&usp=drive_fs"
+    inventario_url = "https://drive.google.com/uc?export=download&id=1WV4la88gTl6OUgqQ5UM0IztNBn_k4VrC"
     
     # Cargar ambos archivos, uno desde Drive y el otro localmente
     maestro_moleculas_df = pd.read_excel('Maestro_Moleculas.xlsx')
