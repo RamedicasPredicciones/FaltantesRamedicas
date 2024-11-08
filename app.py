@@ -35,7 +35,8 @@ def procesar_faltantes(faltantes_df, inventario_api_df, columnas_adicionales):
     # Renombrar columnas para incluir 'codart_alternativa'
     alternativas_disponibles_df.rename(columns={
         'codart': 'codart_alternativa',
-        'opcion': 'opcion_alternativa'
+        'opcion': 'opcion_alternativa',
+        'nomart': 'nomart_alternativa'  # Renombrar nomArt a nomart_alternativa
     }, inplace=True)
 
     # Agregar la columna faltante al hacer merge
@@ -62,7 +63,7 @@ def procesar_faltantes(faltantes_df, inventario_api_df, columnas_adicionales):
     resultado_final_df = pd.DataFrame(mejores_alternativas)
 
     # Seleccionar columnas finales deseadas
-    columnas_finales = ['cur', 'codart', 'faltante', 'codart_alternativa', 'opcion_alternativa', 'unidadespresentacionlote', 'bodega']
+    columnas_finales = ['cur', 'codart', 'faltante', 'codart_alternativa', 'opcion_alternativa', 'unidadespresentacionlote', 'bodega', 'nomart_alternativa']
     columnas_finales.extend([col.lower() for col in columnas_adicionales])
     columnas_presentes = [col for col in columnas_finales if col in resultado_final_df.columns]
     resultado_final_df = resultado_final_df[columnas_presentes]
@@ -81,7 +82,7 @@ if uploaded_file:
     # Seleccionar columnas adicionales para el archivo final
     columnas_adicionales = st.multiselect(
         "Selecciona columnas adicionales para incluir en el archivo final:",
-        options=["presentacionart", "numlote", "fechavencelote"],
+        options=["presentacionart", "numlote", "fechavencelote", "nomart"],  # Añadir "nomart" aquí
         default=[]
     )
 
