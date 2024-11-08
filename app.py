@@ -32,9 +32,9 @@ def procesar_faltantes(faltantes_df, inventario_api_df, columnas_adicionales):
         (alternativas_inventario_df['codart'].isin(codart_faltantes))
     ]
 
-    # Renombrar columnas para el archivo final
+    # Renombrar columnas para incluir 'codart_alternativa'
     alternativas_disponibles_df.rename(columns={
-        'codart': 'codart_faltante',
+        'codart': 'codart_alternativa',
         'opcion': 'opcion_alternativa'
     }, inplace=True)
 
@@ -42,15 +42,17 @@ def procesar_faltantes(faltantes_df, inventario_api_df, columnas_adicionales):
     alternativas_disponibles_df = pd.merge(
         faltantes_df[['cur', 'codart', 'faltante']],
         alternativas_disponibles_df,
-        left_on=['cur', 'codart'],
-        right_on=['cur', 'codart_faltante'],
+        left_on=['cur'],
+        right_on=['cur'],
         how='inner'
     )
 
-    # Ordenar y seleccionar la mejor alternativa
-    alternativas_disponibles_df.sort_values(by=['codart_faltante', 'unidadespresentacionlote'], inplace=True)
+    # Ordenar por 'codart' y 'unidadespresentacionlote' para priorizar las mejores opciones
+    alternativas_disponibles_df.sort_values(by=['codart', 'unidadespresentacionlote'], inplace=True)
+
+    # Seleccionar la mejor alternativa para cada faltante
     mejores_alternativas = []
-    for codart_faltante, group in alternativas_disponibles_df.groupby('codart_faltante'):
+    for codart_faltante, group in alternativas_disponibles_df.groupby('codart'):
         faltante_cantidad = group['faltante'].iloc[0]
         mejor_opcion = group[group['unidadespresentacionlote'] >= faltante_cantidad].head(1)
         if mejor_opcion.empty:
@@ -60,7 +62,7 @@ def procesar_faltantes(faltantes_df, inventario_api_df, columnas_adicionales):
     resultado_final_df = pd.DataFrame(mejores_alternativas)
 
     # Seleccionar columnas finales deseadas
-    columnas_finales = ['cur', 'codart', 'faltante', 'codart_faltante', 'opcion_alternativa', 'unidadespresentacionlote', 'bodega']
+    columnas_finales = ['cur', 'codart', 'faltante', 'codart_alternativa', 'opcion_alternativa', 'unidadespresentacionlote', 'bodega']
     columnas_finales.extend([col.lower() for col in columnas_adicionales])
     columnas_presentes = [col for col in columnas_finales if col in resultado_final_df.columns]
     resultado_final_df = resultado_final_df[columnas_presentes]
