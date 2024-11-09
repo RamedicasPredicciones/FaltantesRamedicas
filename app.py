@@ -9,18 +9,30 @@ def load_inventory_file():
     inventario_api_df = pd.read_excel(inventario_url)
     return inventario_api_df
 
-# Función para obtener una alternativa rápida
+# Función para obtener el CUR de un artículo
+def obtener_cur(codart, inventario_api_df):
+    inventario_api_df.columns = inventario_api_df.columns.str.lower().str.strip()
+    cur_resultado = inventario_api_df[inventario_api_df['codart'] == codart]['cur'].unique()
+    return cur_resultado[0] if len(cur_resultado) > 0 else None
+
+# Función para obtener una alternativa rápida utilizando el CUR
 def obtener_alternativa_rapida(codart, faltante, inventario_api_df):
     inventario_api_df.columns = inventario_api_df.columns.str.lower().str.strip()
-
-    # Filtrar alternativas disponibles para el artículo ingresado
+    
+    # Obtener el CUR del artículo ingresado
+    cur = obtener_cur(codart, inventario_api_df)
+    
+    if cur is None:
+        return "No se encontró CUR para este artículo."
+    
+    # Filtrar alternativas disponibles utilizando el CUR
     alternativas_df = inventario_api_df[
-        (inventario_api_df['codart'] == codart) &
+        (inventario_api_df['cur'] == cur) &
         (inventario_api_df['unidadespresentacionlote'] > 0)
     ]
 
     if alternativas_df.empty:
-        return "No se encontraron alternativas disponibles para este artículo."
+        return "No se encontraron alternativas disponibles para este CUR."
 
     # Ordenar por cantidad de unidades disponibles
     alternativas_df = alternativas_df.sort_values(by='unidadespresentacionlote', ascending=False)
@@ -31,8 +43,8 @@ def obtener_alternativa_rapida(codart, faltante, inventario_api_df):
         mejor_opcion = alternativas_df.head(1)
 
     # Seleccionar columnas para mostrar
-    resultado = mejor_opcion[['codart', 'opcion', 'unidadespresentacionlote', 'nomart', 'bodega']]
-    resultado.columns = ['CodArt Alternativa', 'Opción Alternativa', 'Unidades Disponibles', 'Nombre Artículo', 'Bodega']
+    resultado = mejor_opcion[['cur', 'codart', 'opcion', 'unidadespresentacionlote', 'nomart', 'bodega']]
+    resultado.columns = ['CUR', 'CodArt Alternativa', 'Opción Alternativa', 'Unidades Disponibles', 'Nombre Artículo', 'Bodega']
     return resultado
 
 # Función para procesar el archivo de faltantes y generar el resultado
