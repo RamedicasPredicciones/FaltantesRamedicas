@@ -36,7 +36,7 @@ def procesar_faltantes(faltantes_df, inventario_api_df, columnas_adicionales):
     alternativas_disponibles_df.rename(columns={
         'codart': 'codart_alternativa',
         'opcion': 'opcion_alternativa',
-        'nomart': 'nomart_alternativa'  # Renombrar nomArt a nomart_alternativa
+        'nomart': 'nomart_alternativa'
     }, inplace=True)
 
     # Agregar la columna faltante al hacer merge
@@ -70,6 +70,40 @@ def procesar_faltantes(faltantes_df, inventario_api_df, columnas_adicionales):
 
     return resultado_final_df
 
+# Nueva función para buscar una alternativa rápida
+def obtener_alternativa_rapida(codart, faltante, inventario_api_df):
+    inventario_api_df.columns = inventario_api_df.columns.str.lower().str.strip()
+    
+    # Filtrar alternativas disponibles para el artículo ingresado
+    alternativas_df = inventario_api_df[
+        (inventario_api_df['codart'] == codart) &
+        (inventario_api_df['unidadespresentacionlote'] > 0)
+    ]
+    
+    if alternativas_df.empty:
+        return "No se encontraron alternativas disponibles para este artículo."
+    
+    # Ordenar por cantidad de unidades
+    alternativas_df = alternativas_df.sort_values(by='unidadespresentacionlote', ascending=False)
+    
+    # Buscar la mejor alternativa
+    mejor_opcion = alternativas_df[alternativas_df['unidadespresentacionlote'] >= faltante].head(1)
+    
+    if mejor_opcion.empty:
+        mejor_opcion = alternativas_df.head(1)
+    
+    # Formatear el resultado
+    resultado = mejor_opcion[['codart', 'opcion', 'unidadespresentacionlote', 'nomart', 'bodega']]
+    resultado.rename(columns={
+        'codart': 'CodArt Alternativa',
+        'opcion': 'Opción Alternativa',
+        'unidadespresentacionlote': 'Unidades Disponibles',
+        'nomart': 'Nombre Artículo',
+        'bodega': 'Bodega'
+    }, inplace=True)
+    
+    return resultado
+
 # Streamlit UI
 st.title('Generador de Alternativas de Faltantes')
 
@@ -79,29 +113,30 @@ if uploaded_file:
     faltantes_df = pd.read_excel(uploaded_file)
     inventario_api_df = load_inventory_file()
 
-    # Seleccionar columnas adicionales para el archivo final
+    # Opción para procesamiento de archivo completo
+    st.header("Procesamiento Completo")
     columnas_adicionales = st.multiselect(
         "Selecciona columnas adicionales para incluir en el archivo final:",
-        options=["presentacionart", "numlote", "fechavencelote", "nomart"],  # Añadir "nomart" aquí
+        options=["presentacionart", "numlote", "fechavencelote", "nomart"],
         default=[]
     )
 
     resultado_final_df = procesar_faltantes(faltantes_df, inventario_api_df, columnas_adicionales)
-
-    st.write("Archivo procesado correctamente.")
     st.dataframe(resultado_final_df)
 
-    # Crear archivo Excel en memoria para la descarga
-    def to_excel(df):
-        output = BytesIO()
-        with pd.ExcelWriter(output, engine='openpyxl') as writer:
-            df.to_excel(writer, index=False, sheet_name='Alternativas')
-        return output.getvalue()
-
-    # Botón para descargar el archivo generado
     st.download_button(
         label="Descargar archivo de alternativas",
-        data=to_excel(resultado_final_df),
+        data=BytesIO(pd.ExcelWriter(BytesIO(), engine='openpyxl').save()),
         file_name='alternativas_disponibles.xlsx',
         mime='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
     )
+    
+    # Opción rápida de búsqueda
+    st.header("Búsqueda Rápida de Alternativa para un Artículo")
+    codart_input = st.text_input("Ingrese el código del artículo (CodArt):")
+    faltante_input = st.number_input("Ingrese la cantidad faltante:", min_value=1, step=1)
+    
+    if st.button("Buscar Alternativa"):
+        resultado_alternativa = obtener_alternativa_rapida(codart_input, faltante_input, inventario_api_df)
+        st.write("Resultado:")
+        st.dataframe(resultado_alternativa)
