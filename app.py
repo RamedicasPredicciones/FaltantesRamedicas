@@ -9,15 +9,23 @@ def load_inventory_file():
     inventario_api_df = pd.read_excel(inventario_url)
     return inventario_api_df
 
-# Función para obtener una alternativa rápida
-def obtener_alternativa_rapida(codart, faltante, inventario_api_df):
+# Función para obtener una alternativa rápida con CodArt, CUR o ambos
+def obtener_alternativa_rapida(codart, cur, faltante, inventario_api_df):
     inventario_api_df.columns = inventario_api_df.columns.str.lower().str.strip()
 
-    # Filtrar alternativas disponibles para el artículo ingresado
-    alternativas_df = inventario_api_df[
-        (inventario_api_df['codart'] == codart) &
-        (inventario_api_df['unidadespresentacionlote'] > 0)
-    ]
+    # Filtrar alternativas disponibles para el artículo ingresado (CodArt o CUR)
+    if codart:
+        alternativas_df = inventario_api_df[
+            (inventario_api_df['codart'] == codart) &
+            (inventario_api_df['unidadespresentacionlote'] > 0)
+        ]
+    elif cur:
+        alternativas_df = inventario_api_df[
+            (inventario_api_df['cur'] == cur) &
+            (inventario_api_df['unidadespresentacionlote'] > 0)
+        ]
+    else:
+        return "Por favor ingresa el CodArt o el CUR para realizar la búsqueda."
 
     if alternativas_df.empty:
         return "No se encontraron alternativas disponibles para este artículo."
@@ -90,18 +98,19 @@ inventario_api_df = load_inventory_file()
 # Opción rápida para obtener una alternativa de un solo artículo
 st.header("Búsqueda rápida de alternativa")
 codart_input = st.text_input("Ingresa el código del artículo (CodArt):")
+cur_input = st.text_input("Ingresa el CUR del artículo (opcional):")
 faltante_input = st.number_input("Ingresa la cantidad faltante:", min_value=0)
 
 if st.button("Buscar Alternativa"):
-    if codart_input and faltante_input > 0:
-        resultado_alternativa = obtener_alternativa_rapida(codart_input, faltante_input, inventario_api_df)
+    if (codart_input or cur_input) and faltante_input > 0:
+        resultado_alternativa = obtener_alternativa_rapida(codart_input, cur_input, faltante_input, inventario_api_df)
         st.write("Resultado de la búsqueda rápida:")
         if isinstance(resultado_alternativa, str):
             st.warning(resultado_alternativa)
         else:
             st.dataframe(resultado_alternativa)
     else:
-        st.warning("Por favor ingresa el código del artículo y la cantidad faltante.")
+        st.warning("Por favor ingresa el CodArt, el CUR o ambos, y la cantidad faltante.")
 
 # Opción para procesar un archivo de faltantes completo
 st.header("Cargar archivo de faltantes para procesar")
