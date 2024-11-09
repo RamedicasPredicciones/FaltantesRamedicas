@@ -2,29 +2,35 @@ import streamlit as st
 import pandas as pd
 from io import BytesIO
 
-# Cargar archivo de Inventario desde Google Drive
+# Cargar archivos desde Google Drive
 @st.cache_data
 def load_inventory_file():
     inventario_url = "https://docs.google.com/spreadsheets/d/1WV4la88gTl6OUgqQ5UM0IztNBn_k4VrC/export?format=xlsx"
     inventario_api_df = pd.read_excel(inventario_url)
     return inventario_api_df
 
-# Función para obtener el CUR de un artículo
-def obtener_cur(codart, inventario_api_df):
-    inventario_api_df.columns = inventario_api_df.columns.str.lower().str.strip()
-    cur_resultado = inventario_api_df[inventario_api_df['codart'] == codart]['cur'].unique()
+@st.cache_data
+def load_maestro_moleculas():
+    maestro_url = "https://docs.google.com/spreadsheets/d/1Your_Maestro_Moleculas_File_ID/export?format=xlsx"
+    maestro_moleculas_df = pd.read_excel(maestro_url)
+    return maestro_moleculas_df
+
+# Función para obtener el CUR de un artículo desde Maestro_Moleculas
+def obtener_cur_desde_maestro(codart, maestro_moleculas_df):
+    maestro_moleculas_df.columns = maestro_moleculas_df.columns.str.lower().str.strip()
+    cur_resultado = maestro_moleculas_df[maestro_moleculas_df['codart'] == codart]['cur'].unique()
     return cur_resultado[0] if len(cur_resultado) > 0 else None
 
-# Función para obtener una alternativa rápida utilizando el CUR
-def obtener_alternativa_rapida(codart, faltante, inventario_api_df):
+# Función para obtener una alternativa rápida utilizando el CUR desde Maestro_Moleculas
+def obtener_alternativa_rapida(codart, faltante, inventario_api_df, maestro_moleculas_df):
     inventario_api_df.columns = inventario_api_df.columns.str.lower().str.strip()
     
-    # Obtener el CUR del artículo ingresado
-    cur = obtener_cur(codart, inventario_api_df)
+    # Obtener el CUR desde Maestro_Moleculas
+    cur = obtener_cur_desde_maestro(codart, maestro_moleculas_df)
     
     if cur is None:
-        return "No se encontró CUR para este artículo."
-    
+        return "No se encontró CUR para este artículo en Maestro_Moleculas."
+
     # Filtrar alternativas disponibles utilizando el CUR
     alternativas_df = inventario_api_df[
         (inventario_api_df['cur'] == cur) &
@@ -96,8 +102,9 @@ def procesar_faltantes(faltantes_df, inventario_api_df, columnas_adicionales):
 # Streamlit UI
 st.title('Generador de Alternativas de Faltantes')
 
-# Cargar inventario
+# Cargar inventario y Maestro_Moleculas
 inventario_api_df = load_inventory_file()
+maestro_moleculas_df = load_maestro_moleculas()
 
 # Opción rápida para obtener una alternativa de un solo artículo
 st.header("Búsqueda rápida de alternativa")
@@ -106,7 +113,7 @@ faltante_input = st.number_input("Ingresa la cantidad faltante:", min_value=0)
 
 if st.button("Buscar Alternativa"):
     if codart_input and faltante_input > 0:
-        resultado_alternativa = obtener_alternativa_rapida(codart_input, faltante_input, inventario_api_df)
+        resultado_alternativa = obtener_alternativa_rapida(codart_input, faltante_input, inventario_api_df, maestro_moleculas_df)
         st.write("Resultado de la búsqueda rápida:")
         if isinstance(resultado_alternativa, str):
             st.warning(resultado_alternativa)
@@ -133,6 +140,7 @@ if uploaded_file:
     st.write("Archivo procesado correctamente.")
     st.dataframe(resultado_final_df)
 
+    # Descargar archivo
     def to_excel(df):
         output = BytesIO()
         with pd.ExcelWriter(output, engine='openpyxl') as writer:
@@ -145,3 +153,4 @@ if uploaded_file:
         file_name='alternativas_disponibles.xlsx',
         mime='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
     )
+
