@@ -35,6 +35,52 @@ def obtener_alternativa_rapida(codart, faltante, inventario_api_df):
     resultado.columns = ['CodArt Alternativa', 'Opción Alternativa', 'Unidades Disponibles', 'Nombre Artículo', 'Bodega']
     return resultado
 
+# Función para procesar el archivo de faltantes y generar el resultado
+def procesar_faltantes(faltantes_df, inventario_api_df, columnas_adicionales):
+    faltantes_df.columns = faltantes_df.columns.str.lower().str.strip()
+    inventario_api_df.columns = inventario_api_df.columns.str.lower().str.strip()
+
+    cur_faltantes = faltantes_df['cur'].unique()
+    codart_faltantes = faltantes_df['codart'].unique()
+
+    alternativas_inventario_df = inventario_api_df[inventario_api_df['cur'].isin(cur_faltantes)]
+    alternativas_disponibles_df = alternativas_inventario_df[
+        (alternativas_inventario_df['unidadespresentacionlote'] > 0) &
+        (alternativas_inventario_df['codart'].isin(codart_faltantes))
+    ]
+
+    alternativas_disponibles_df.rename(columns={
+        'codart': 'codart_alternativa',
+        'opcion': 'opcion_alternativa',
+        'nomart': 'nomart_alternativa'
+    }, inplace=True)
+
+    alternativas_disponibles_df = pd.merge(
+        faltantes_df[['cur', 'codart', 'faltante']],
+        alternativas_disponibles_df,
+        on='cur',
+        how='inner'
+    )
+
+    alternativas_disponibles_df.sort_values(by=['codart', 'unidadespresentacionlote'], inplace=True)
+
+    mejores_alternativas = []
+    for codart_faltante, group in alternativas_disponibles_df.groupby('codart'):
+        faltante_cantidad = group['faltante'].iloc[0]
+        mejor_opcion = group[group['unidadespresentacionlote'] >= faltante_cantidad].head(1)
+        if mejor_opcion.empty:
+            mejor_opcion = group.nlargest(1, 'unidadespresentacionlote')
+        mejores_alternativas.append(mejor_opcion.iloc[0])
+
+    resultado_final_df = pd.DataFrame(mejores_alternativas)
+
+    columnas_finales = ['cur', 'codart', 'faltante', 'codart_alternativa', 'opcion_alternativa', 'unidadespresentacionlote', 'bodega', 'nomart_alternativa']
+    columnas_finales.extend([col.lower() for col in columnas_adicionales])
+    columnas_presentes = [col for col in columnas_finales if col in resultado_final_df.columns]
+    resultado_final_df = resultado_final_df[columnas_presentes]
+
+    return resultado_final_df
+
 # Streamlit UI
 st.title('Generador de Alternativas de Faltantes')
 
@@ -49,7 +95,7 @@ faltante_input = st.number_input("Ingresa la cantidad faltante:", min_value=0)
 if st.button("Buscar Alternativa"):
     if codart_input and faltante_input > 0:
         resultado_alternativa = obtener_alternativa_rapida(codart_input, faltante_input, inventario_api_df)
-        st.write("Resultado de la búsqueda:")
+        st.write("Resultado de la búsqueda rápida:")
         if isinstance(resultado_alternativa, str):
             st.warning(resultado_alternativa)
         else:
@@ -57,3 +103,33 @@ if st.button("Buscar Alternativa"):
     else:
         st.warning("Por favor ingresa el código del artículo y la cantidad faltante.")
 
+# Opción para procesar un archivo de faltantes completo
+st.header("Cargar archivo de faltantes para procesar")
+uploaded_file = st.file_uploader("Sube tu archivo de faltantes", type="xlsx")
+
+if uploaded_file:
+    faltantes_df = pd.read_excel(uploaded_file)
+
+    columnas_adicionales = st.multiselect(
+        "Selecciona columnas adicionales para incluir en el archivo final:",
+        options=["presentacionart", "numlote", "fechavencelote", "nomart"],
+        default=[]
+    )
+
+    resultado_final_df = procesar_faltantes(faltantes_df, inventario_api_df, columnas_adicionales)
+
+    st.write("Archivo procesado correctamente.")
+    st.dataframe(resultado_final_df)
+
+    def to_excel(df):
+        output = BytesIO()
+        with pd.ExcelWriter(output, engine='openpyxl') as writer:
+            df.to_excel(writer, index=False, sheet_name='Alternativas')
+        return output.getvalue()
+
+    st.download_button(
+        label="Descargar archivo de alternativas",
+        data=to_excel(resultado_final_df),
+        file_name='alternativas_disponibles.xlsx',
+        mime='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    )
