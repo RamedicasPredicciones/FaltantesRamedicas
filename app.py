@@ -38,9 +38,9 @@ def obtener_alternativa_rapida(codart, cur, faltante, inventario_api_df):
     if mejor_opcion.empty:
         mejor_opcion = alternativas_df.head(1)
 
-    # Seleccionar columnas para mostrar
-    resultado = mejor_opcion[['codart', 'opcion', 'unidadespresentacionlote', 'nomart', 'bodega']]
-    resultado.columns = ['CodArt Alternativa', 'Opción Alternativa', 'Unidades Disponibles', 'Nombre Artículo', 'Bodega']
+    # Seleccionar columnas para mostrar (sin 'nomart')
+    resultado = mejor_opcion[['codart', 'opcion', 'unidadespresentacionlote', 'bodega']]
+    resultado.columns = ['CodArt Alternativa', 'Opción Alternativa', 'Unidades Disponibles', 'Bodega']
     return resultado
 
 # Función para procesar el archivo de faltantes y generar el resultado
@@ -137,9 +137,8 @@ if uploaded_file:
         return output.getvalue()
 
     st.download_button(
-        label="Descargar archivo de alternativas",
+        label="Descargar archivo de alternativas...",
         data=to_excel(resultado_final_df),
-        file_name='alternativas_disponibles.xlsx',
-        mime='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        file_name="alternativas_faltantes.xlsx",
+        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     )
-
