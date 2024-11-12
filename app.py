@@ -2,12 +2,6 @@ import streamlit as st
 import pandas as pd
 from io import BytesIO
 
-# Cargar archivo Maestro de Moléculas desde la ruta especificada
-@st.cache_data
-def load_maestro_moleculas():
-    maestro_moleculas_df = pd.read_excel('/content/Maestro_Moleculas.xlsx')  # Ruta local del archivo
-    return maestro_moleculas_df
-
 # Cargar archivo de Inventario desde Google Drive
 @st.cache_data
 def load_inventory_file():
@@ -24,25 +18,31 @@ def obtener_cur(codart, inventario_api_df):
 # Función para obtener una alternativa rápida utilizando el CUR
 def obtener_alternativa_rapida(codart, faltante, inventario_api_df):
     inventario_api_df.columns = inventario_api_df.columns.str.lower().str.strip()
+    
+    # Obtener el CUR del artículo ingresado
     cur = obtener_cur(codart, inventario_api_df)
     
     if cur is None:
         return "No se encontró CUR para este artículo."
     
+    # Filtrar alternativas disponibles utilizando el CUR
     alternativas_df = inventario_api_df[
-        (inventario_api_df['cur'] == cur) & 
+        (inventario_api_df['cur'] == cur) &
         (inventario_api_df['unidadespresentacionlote'] > 0)
     ]
 
     if alternativas_df.empty:
         return "No se encontraron alternativas disponibles para este CUR."
 
+    # Ordenar por cantidad de unidades disponibles
     alternativas_df = alternativas_df.sort_values(by='unidadespresentacionlote', ascending=False)
+
+    # Buscar la mejor alternativa
     mejor_opcion = alternativas_df[alternativas_df['unidadespresentacionlote'] >= faltante].head(1)
-    
     if mejor_opcion.empty:
         mejor_opcion = alternativas_df.head(1)
 
+    # Seleccionar columnas para mostrar
     resultado = mejor_opcion[['cur', 'codart', 'opcion', 'unidadespresentacionlote', 'nomart', 'bodega']]
     resultado.columns = ['CUR', 'CodArt Alternativa', 'Opción Alternativa', 'Unidades Disponibles', 'Nombre Artículo', 'Bodega']
     return resultado
@@ -57,7 +57,7 @@ def procesar_faltantes(faltantes_df, inventario_api_df, columnas_adicionales):
 
     alternativas_inventario_df = inventario_api_df[inventario_api_df['cur'].isin(cur_faltantes)]
     alternativas_disponibles_df = alternativas_inventario_df[
-        (alternativas_inventario_df['unidadespresentacionlote'] > 0) & 
+        (alternativas_inventario_df['unidadespresentacionlote'] > 0) &
         (alternativas_inventario_df['codart'].isin(codart_faltantes))
     ]
 
@@ -75,8 +75,8 @@ def procesar_faltantes(faltantes_df, inventario_api_df, columnas_adicionales):
     )
 
     alternativas_disponibles_df.sort_values(by=['codart', 'unidadespresentacionlote'], inplace=True)
-    mejores_alternativas = []
 
+    mejores_alternativas = []
     for codart_faltante, group in alternativas_disponibles_df.groupby('codart'):
         faltante_cantidad = group['faltante'].iloc[0]
         mejor_opcion = group[group['unidadespresentacionlote'] >= faltante_cantidad].head(1)
@@ -85,8 +85,8 @@ def procesar_faltantes(faltantes_df, inventario_api_df, columnas_adicionales):
         mejores_alternativas.append(mejor_opcion.iloc[0])
 
     resultado_final_df = pd.DataFrame(mejores_alternativas)
-    columnas_finales = ['cur', 'codart', 'faltante', 'codart_alternativa', 'opcion_alternativa', 
-                        'unidadespresentacionlote', 'bodega', 'nomart_alternativa']
+
+    columnas_finales = ['cur', 'codart', 'faltante', 'codart_alternativa', 'opcion_alternativa', 'unidadespresentacionlote', 'bodega', 'nomart_alternativa']
     columnas_finales.extend([col.lower() for col in columnas_adicionales])
     columnas_presentes = [col for col in columnas_finales if col in resultado_final_df.columns]
     resultado_final_df = resultado_final_df[columnas_presentes]
@@ -96,10 +96,7 @@ def procesar_faltantes(faltantes_df, inventario_api_df, columnas_adicionales):
 # Streamlit UI
 st.title('Generador de Alternativas de Faltantes')
 
-# Cargar Maestro de Moléculas
-maestro_moleculas_df = load_maestro_moleculas()
-
-# Cargar Inventario
+# Cargar inventario
 inventario_api_df = load_inventory_file()
 
 # Opción rápida para obtener una alternativa de un solo artículo
@@ -132,21 +129,19 @@ if uploaded_file:
     )
 
     resultado_final_df = procesar_faltantes(faltantes_df, inventario_api_df, columnas_adicionales)
+
     st.write("Archivo procesado correctamente.")
     st.dataframe(resultado_final_df)
 
-    # Función para exportar a Excel
     def to_excel(df):
         output = BytesIO()
         with pd.ExcelWriter(output, engine='openpyxl') as writer:
-            df.to_excel(writer, index=False, sheet_name='Resultado')
-        output.seek(0)
-        return output
+            df.to_excel(writer, index=False, sheet_name='Alternativas')
+        return output.getvalue()
 
-    excel_data = to_excel(resultado_final_df)
     st.download_button(
-        label="Descargar Resultado",
-        data=excel_data,
-        file_name="resultado_faltantes.xlsx",
-        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-    )
+        label="Descargar archivo de alternativas",
+        data=to_excel(resultado_final_df),
+        file_name='alternativas_disponibles.xlsx',
+        mime='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    ) 
