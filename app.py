@@ -21,16 +21,12 @@ def procesar_faltantes(faltantes_df, inventario_api_df, columnas_adicionales, bo
         return pd.DataFrame()  # Devuelve un DataFrame vacío si faltan columnas
 
     cur_faltantes = faltantes_df['cur'].unique()
-    codart_faltantes = faltantes_df['codart'].unique()
-
     alternativas_inventario_df = inventario_api_df[inventario_api_df['cur'].isin(cur_faltantes)]
+
     if bodega_seleccionada:
         alternativas_inventario_df = alternativas_inventario_df[alternativas_inventario_df['bodega'].isin(bodega_seleccionada)]
-    
-    alternativas_disponibles_df = alternativas_inventario_df[
-        (alternativas_inventario_df['unidadespresentacionlote'] > 0) &
-        (alternativas_inventario_df['codart'].isin(codart_faltantes))
-    ]
+
+    alternativas_disponibles_df = alternativas_inventario_df[alternativas_inventario_df['unidadespresentacionlote'] > 0]
 
     alternativas_disponibles_df.rename(columns={
         'codart': 'codart_alternativa',
@@ -50,9 +46,11 @@ def procesar_faltantes(faltantes_df, inventario_api_df, columnas_adicionales, bo
     mejores_alternativas = []
     for codart_faltante, group in alternativas_disponibles_df.groupby('codart'):
         faltante_cantidad = group['faltante'].iloc[0]
-        mejor_opcion = group[group['unidadespresentacionlote'] >= faltante_cantidad].head(1)
-        if mejor_opcion.empty:
-            mejor_opcion = group.nlargest(1, 'unidadespresentacionlote')
+
+        # Buscar en la bodega seleccionada
+        mejor_opcion_bodega = group[group['unidadespresentacionlote'] >= faltante_cantidad]
+        mejor_opcion = mejor_opcion_bodega.head(1) if not mejor_opcion_bodega.empty else group.nlargest(1, 'unidadespresentacionlote')
+        
         mejores_alternativas.append(mejor_opcion.iloc[0])
 
     resultado_final_df = pd.DataFrame(mejores_alternativas)
