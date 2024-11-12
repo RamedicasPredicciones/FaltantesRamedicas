@@ -6,18 +6,20 @@ from io import BytesIO
 @st.cache_data
 def load_inventory_file():
     # Enlace directo para Inventario desde Google Drive
-    inventario_url = "https://docs.google.com/spreadsheets/d/1WV4la88gTl6OUgqQ5UM0IztNBn_k4VrC/export?format=xlsx"
-
-    # Cargar el archivo de inventario directamente desde el enlace
-    inventario_api_df = pd.read_excel(inventario_url)
-    
+    inventario_url = "https://docs.google.com/spreadsheets/d/1WV4la88gTl6OUgqQ5UM0IztNBn_k4VrC/export?format=xlsx&id=1WV4la88gTl6OUgqQ5UM0IztNBn_k4VrC&sheet=Hoja3"
+    # Cargar el archivo de inventario directamente desde la Hoja3
+    inventario_api_df = pd.read_excel(inventario_url, sheet_name='Hoja3')
     return inventario_api_df
 
 # Función para procesar el archivo de faltantes y generar el resultado
-def procesar_faltantes(faltantes_df, inventario_api_df, columnas_adicionales):
+def procesar_faltantes(faltantes_df, inventario_api_df, columnas_adicionales, bodegas_seleccionadas):
     # Normalizar nombres de columnas
     faltantes_df.columns = faltantes_df.columns.str.lower().str.strip()
     inventario_api_df.columns = inventario_api_df.columns.str.lower().str.strip()
+
+    # Filtrar inventario por bodegas seleccionadas
+    if bodegas_seleccionadas:
+        inventario_api_df = inventario_api_df[inventario_api_df['bodega'].isin(bodegas_seleccionadas)]
 
     # Obtener los CUR y codArt únicos de productos con faltantes
     cur_faltantes = faltantes_df['cur'].unique()
@@ -78,6 +80,10 @@ if uploaded_file:
     faltantes_df = pd.read_excel(uploaded_file)
     inventario_api_df = load_inventory_file()
 
+    # Filtro para seleccionar bodegas disponibles
+    bodegas_disponibles = inventario_api_df['bodega'].unique()
+    bodegas_seleccionadas = st.multiselect("Selecciona las bodegas que quieres consultar:", options=bodegas_disponibles)
+
     # Seleccionar columnas adicionales para el archivo final
     columnas_adicionales = st.multiselect(
         "Selecciona columnas adicionales para incluir en el archivo final:",
@@ -85,7 +91,7 @@ if uploaded_file:
         default=[]
     )
 
-    resultado_final_df = procesar_faltantes(faltantes_df, inventario_api_df, columnas_adicionales)
+    resultado_final_df = procesar_faltantes(faltantes_df, inventario_api_df, columnas_adicionales, bodegas_seleccionadas)
 
     st.write("Archivo procesado correctamente.")
     st.dataframe(resultado_final_df)
