@@ -68,7 +68,7 @@ if uploaded_file:
     inventario_api_df = load_inventory_file()
 
     columnas_adicionales = st.multiselect(
-        "Selecciona columnas adicionales para incluir en el archivo final:",
+        "Selecciona columnas adicionales para incluir en el archivo final (Opción 1):",
         options=["presentacionart", "numlote", "fechavencelote", "nomart"],
         default=[]
     )
@@ -96,18 +96,23 @@ st.subheader("Opción 2: Búsqueda rápida de alternativa")
 codigo_articulo = st.text_input("Ingrese el código del artículo con faltante:")
 cantidad_faltante = st.number_input("Ingrese la cantidad de faltante:", min_value=1, step=1)
 
+# Selección de columnas adicionales para la segunda opción
+columnas_adicionales_rapida = st.multiselect(
+    "Selecciona columnas adicionales para incluir en el archivo final (Opción 2):",
+    options=["presentacionart", "numlote", "fechavencelote", "nomart"],
+    default=[]
+)
+
 if st.button("Buscar alternativa"):
     if codigo_articulo and cantidad_faltante:
         maestro_df = load_maestro_file()
         inventario_api_df = load_inventory_file()
 
-        # Buscar CUR en el maestro para el código ingresado
         cur_articulo = maestro_df.loc[maestro_df['codart'] == codigo_articulo, 'cur'].values
         if cur_articulo.size > 0:
             cur_articulo = cur_articulo[0]
-            # Crear DataFrame temporal para simular faltante de un solo artículo
             faltante_df = pd.DataFrame({'cur': [cur_articulo], 'codart': [codigo_articulo], 'faltante': [cantidad_faltante]})
-            resultado_individual_df = procesar_faltantes(faltante_df, inventario_api_df, columnas_adicionales=[])
+            resultado_individual_df = procesar_faltantes(faltante_df, inventario_api_df, columnas_adicionales_rapida)
 
             st.write("Alternativa encontrada:")
             st.dataframe(resultado_individual_df)
@@ -115,3 +120,4 @@ if st.button("Buscar alternativa"):
             st.error("Código de artículo no encontrado en el archivo Maestro.")
     else:
         st.warning("Por favor, ingrese tanto el código del artículo como la cantidad faltante.")
+
