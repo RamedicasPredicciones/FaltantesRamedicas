@@ -8,10 +8,10 @@ def load_inventory_file():
     inventario_url = "https://docs.google.com/spreadsheets/d/1WV4la88gTl6OUgqQ5UM0IztNBn_k4VrC/export?format=xlsx"
     return pd.read_excel(inventario_url)
 
-# Cargar archivo Maestro de Moléculas
+# Cargar archivo Maestro de Moléculas desde Google Drive
 @st.cache_data
 def load_maestro_moleculas_file():
-    maestro_url = "/content/Maestro_Moleculas.xlsx"  # Ruta del archivo Maestro de Moléculas
+    maestro_url = "https://docs.google.com/spreadsheets/d/19myWtMrvsor2P_XHiifPgn8YKdTWE39O/export?format=xlsx"
     return pd.read_excel(maestro_url)
 
 # Función para obtener el CUR de un artículo desde el archivo maestro
