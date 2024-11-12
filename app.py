@@ -2,6 +2,12 @@ import streamlit as st
 import pandas as pd
 from io import BytesIO
 
+# Cargar archivo Maestro de Moléculas desde la ruta especificada
+@st.cache_data
+def load_maestro_moleculas():
+    maestro_moleculas_df = pd.read_excel('/content/Maestro_Moleculas.xlsx')  # Ruta local del archivo
+    return maestro_moleculas_df
+
 # Cargar archivo de Inventario desde Google Drive
 @st.cache_data
 def load_inventory_file():
@@ -9,85 +15,138 @@ def load_inventory_file():
     inventario_api_df = pd.read_excel(inventario_url)
     return inventario_api_df
 
-# Cargar archivo Maestro Moleculas
-@st.cache_data
-def load_maestro_moleculas():
-    maestro_moleculas_df = pd.read_excel('/content/Maestro_Moleculas.xlsx')  # Ruta local del archivo
-    return maestro_moleculas_df
+# Función para obtener el CUR de un artículo
+def obtener_cur(codart, inventario_api_df):
+    inventario_api_df.columns = inventario_api_df.columns.str.lower().str.strip()
+    cur_resultado = inventario_api_df[inventario_api_df['codart'] == codart]['cur'].unique()
+    return cur_resultado[0] if len(cur_resultado) > 0 else None
 
-# Procesar faltantes con datos del archivo subido
+# Función para obtener una alternativa rápida utilizando el CUR
+def obtener_alternativa_rapida(codart, faltante, inventario_api_df):
+    inventario_api_df.columns = inventario_api_df.columns.str.lower().str.strip()
+    cur = obtener_cur(codart, inventario_api_df)
+    
+    if cur is None:
+        return "No se encontró CUR para este artículo."
+    
+    alternativas_df = inventario_api_df[
+        (inventario_api_df['cur'] == cur) & 
+        (inventario_api_df['unidadespresentacionlote'] > 0)
+    ]
+
+    if alternativas_df.empty:
+        return "No se encontraron alternativas disponibles para este CUR."
+
+    alternativas_df = alternativas_df.sort_values(by='unidadespresentacionlote', ascending=False)
+    mejor_opcion = alternativas_df[alternativas_df['unidadespresentacionlote'] >= faltante].head(1)
+    
+    if mejor_opcion.empty:
+        mejor_opcion = alternativas_df.head(1)
+
+    resultado = mejor_opcion[['cur', 'codart', 'opcion', 'unidadespresentacionlote', 'nomart', 'bodega']]
+    resultado.columns = ['CUR', 'CodArt Alternativa', 'Opción Alternativa', 'Unidades Disponibles', 'Nombre Artículo', 'Bodega']
+    return resultado
+
+# Función para procesar el archivo de faltantes y generar el resultado
 def procesar_faltantes(faltantes_df, inventario_api_df, columnas_adicionales):
     faltantes_df.columns = faltantes_df.columns.str.lower().str.strip()
     inventario_api_df.columns = inventario_api_df.columns.str.lower().str.strip()
+
     cur_faltantes = faltantes_df['cur'].unique()
+    codart_faltantes = faltantes_df['codart'].unique()
+
     alternativas_inventario_df = inventario_api_df[inventario_api_df['cur'].isin(cur_faltantes)]
     alternativas_disponibles_df = alternativas_inventario_df[
-        (alternativas_inventario_df['unidadespresentacionlote'] > 0)
+        (alternativas_inventario_df['unidadespresentacionlote'] > 0) & 
+        (alternativas_inventario_df['codart'].isin(codart_faltantes))
     ]
-    alternativas_disponibles_df.rename(columns={'codart': 'codart_alternativa'}, inplace=True)
+
+    alternativas_disponibles_df.rename(columns={
+        'codart': 'codart_alternativa',
+        'opcion': 'opcion_alternativa',
+        'nomart': 'nomart_alternativa'
+    }, inplace=True)
+
     alternativas_disponibles_df = pd.merge(
         faltantes_df[['cur', 'codart', 'faltante']],
         alternativas_disponibles_df,
         on='cur',
         how='inner'
     )
+
     alternativas_disponibles_df.sort_values(by=['codart', 'unidadespresentacionlote'], inplace=True)
-    resultado_final_df = alternativas_disponibles_df.head(1)
+    mejores_alternativas = []
+
+    for codart_faltante, group in alternativas_disponibles_df.groupby('codart'):
+        faltante_cantidad = group['faltante'].iloc[0]
+        mejor_opcion = group[group['unidadespresentacionlote'] >= faltante_cantidad].head(1)
+        if mejor_opcion.empty:
+            mejor_opcion = group.nlargest(1, 'unidadespresentacionlote')
+        mejores_alternativas.append(mejor_opcion.iloc[0])
+
+    resultado_final_df = pd.DataFrame(mejores_alternativas)
+    columnas_finales = ['cur', 'codart', 'faltante', 'codart_alternativa', 'opcion_alternativa', 
+                        'unidadespresentacionlote', 'bodega', 'nomart_alternativa']
+    columnas_finales.extend([col.lower() for col in columnas_adicionales])
+    columnas_presentes = [col for col in columnas_finales if col in resultado_final_df.columns]
+    resultado_final_df = resultado_final_df[columnas_presentes]
+
     return resultado_final_df
 
-# Función para búsqueda rápida
-def busqueda_rapida(articulo, cantidad, inventario_api_df, maestro_moleculas_df):
-    maestro_moleculas_df.columns = maestro_moleculas_df.columns.str.lower().str.strip()
-    inventario_api_df.columns = inventario_api_df.columns.str.lower().str.strip()
-    
-    # Obtener el CUR del artículo ingresado
-    cur_info = maestro_moleculas_df[maestro_moleculas_df['articulo'] == articulo]
-    if cur_info.empty:
-        st.error("Artículo no encontrado en el maestro.")
-        return pd.DataFrame()
-    
-    cur = cur_info['cur'].iloc[0]
-    
-    # Filtrar en inventario por el CUR
-    alternativas_df = inventario_api_df[
-        (inventario_api_df['cur'] == cur) &
-        (inventario_api_df['unidadespresentacionlote'] > cantidad)
-    ]
-    
-    if alternativas_df.empty:
-        st.warning("No hay alternativas disponibles.")
-        return pd.DataFrame()
-
-    alternativas_df.sort_values(by='unidadespresentacionlote', ascending=False, inplace=True)
-    return alternativas_df.head(1)
-
-# UI de Streamlit
+# Streamlit UI
 st.title('Generador de Alternativas de Faltantes')
 
-option = st.selectbox("Selecciona una opción", ["Subir archivo de faltantes", "Búsqueda rápida"])
-
-inventario_api_df = load_inventory_file()
+# Cargar Maestro de Moléculas
 maestro_moleculas_df = load_maestro_moleculas()
 
-# Primera opción: subir archivo de faltantes
-if option == "Subir archivo de faltantes":
-    uploaded_file = st.file_uploader("Sube tu archivo de faltantes", type="xlsx")
-    if uploaded_file:
-        faltantes_df = pd.read_excel(uploaded_file)
-        resultado_final_df = procesar_faltantes(faltantes_df, inventario_api_df, [])
-        st.dataframe(resultado_final_df)
-        st.download_button(
-            label="Descargar archivo de alternativas",
-            data=resultado_final_df.to_csv().encode('utf-8'),
-            file_name='alternativas.csv'
-        )
+# Cargar Inventario
+inventario_api_df = load_inventory_file()
 
-# Segunda opción: Búsqueda rápida
-if option == "Búsqueda rápida":
-    articulo = st.text_input("Ingresa el artículo:")
-    cantidad = st.number_input("Cantidad faltante:", min_value=1, step=1)
-    
-    if st.button("Buscar Alternativa"):
-        resultado_df = busqueda_rapida(articulo, cantidad, inventario_api_df, maestro_moleculas_df)
-        if not resultado_df.empty:
-            st.dataframe(resultado_df)
+# Opción rápida para obtener una alternativa de un solo artículo
+st.header("Búsqueda rápida de alternativa")
+codart_input = st.text_input("Ingresa el código del artículo (CodArt):")
+faltante_input = st.number_input("Ingresa la cantidad faltante:", min_value=0)
+
+if st.button("Buscar Alternativa"):
+    if codart_input and faltante_input > 0:
+        resultado_alternativa = obtener_alternativa_rapida(codart_input, faltante_input, inventario_api_df)
+        st.write("Resultado de la búsqueda rápida:")
+        if isinstance(resultado_alternativa, str):
+            st.warning(resultado_alternativa)
+        else:
+            st.dataframe(resultado_alternativa)
+    else:
+        st.warning("Por favor ingresa el código del artículo y la cantidad faltante.")
+
+# Opción para procesar un archivo de faltantes completo
+st.header("Cargar archivo de faltantes para procesar")
+uploaded_file = st.file_uploader("Sube tu archivo de faltantes", type="xlsx")
+
+if uploaded_file:
+    faltantes_df = pd.read_excel(uploaded_file)
+
+    columnas_adicionales = st.multiselect(
+        "Selecciona columnas adicionales para incluir en el archivo final:",
+        options=["presentacionart", "numlote", "fechavencelote", "nomart"],
+        default=[]
+    )
+
+    resultado_final_df = procesar_faltantes(faltantes_df, inventario_api_df, columnas_adicionales)
+    st.write("Archivo procesado correctamente.")
+    st.dataframe(resultado_final_df)
+
+    # Función para exportar a Excel
+    def to_excel(df):
+        output = BytesIO()
+        with pd.ExcelWriter(output, engine='openpyxl') as writer:
+            df.to_excel(writer, index=False, sheet_name='Resultado')
+        output.seek(0)
+        return output
+
+    excel_data = to_excel(resultado_final_df)
+    st.download_button(
+        label="Descargar Resultado",
+        data=excel_data,
+        file_name="resultado_faltantes.xlsx",
+        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    )
