@@ -2,8 +2,7 @@ import streamlit as st
 import pandas as pd
 from io import BytesIO
 
-# Cargar archivo de Inventario desde Google Drive
-@st.cache_data
+# Cargar archivo de Inventario desde Google Drive (Sin caché)
 def load_inventory_file():
     inventario_url = "https://docs.google.com/spreadsheets/d/1WV4la88gTl6OUgqQ5UM0IztNBn_k4VrC/export?format=xlsx&sheet=Hoja3"
     inventario_api_df = pd.read_excel(inventario_url, sheet_name="Hoja3")
@@ -65,6 +64,10 @@ def procesar_faltantes(faltantes_df, inventario_api_df, columnas_adicionales, bo
 # Streamlit UI
 st.title('Generador de Alternativas de Faltantes')
 
+# Botón para actualizar inventario
+if st.button('Actualizar inventario'):
+    st.cache_data.clear()  # Limpia la caché para cargar el archivo actualizado
+
 uploaded_file = st.file_uploader("Sube tu archivo de faltantes", type="xlsx")
 
 if uploaded_file:
@@ -86,6 +89,7 @@ if uploaded_file:
         st.write("Archivo procesado correctamente.")
         st.dataframe(resultado_final_df)
 
+        # Función para exportar a Excel
         def to_excel(df):
             output = BytesIO()
             with pd.ExcelWriter(output, engine='openpyxl') as writer:
