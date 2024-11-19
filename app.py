@@ -1,7 +1,7 @@
 import streamlit as st
 import pandas as pd
-from io import BytesIO
 import math
+from io import BytesIO
 
 # Cargar archivo de Inventario desde Google Drive (Sin caché)
 def load_inventory_file():
@@ -41,9 +41,11 @@ def procesar_faltantes(faltantes_df, inventario_api_df, columnas_adicionales, bo
         how='inner'
     )
 
-    # Calcular la cantidad necesaria para suplir el faltante según el embalaje
+    # Agregar columna de cantidad necesaria ajustada por embalaje
     alternativas_disponibles_df['cantidad_necesaria'] = alternativas_disponibles_df.apply(
-        lambda row: math.ceil(row['faltante'] * row['embalaje'] / row['embalaje_alternativa']),
+        lambda row: math.ceil(row['faltante'] * row['embalaje'] / row['embalaje_alternativa'])
+        if pd.notnull(row['embalaje']) and pd.notnull(row['embalaje_alternativa']) and row['embalaje_alternativa'] > 0
+        else None,
         axis=1
     )
 
@@ -54,7 +56,7 @@ def procesar_faltantes(faltantes_df, inventario_api_df, columnas_adicionales, bo
         faltante_cantidad = group['faltante'].iloc[0]
 
         # Buscar en la bodega seleccionada
-        mejor_opcion_bodega = group[group['unidadespresentacionlote'] >= group['cantidad_necesaria']]
+        mejor_opcion_bodega = group[group['unidadespresentacionlote'] >= faltante_cantidad]
         mejor_opcion = mejor_opcion_bodega.head(1) if not mejor_opcion_bodega.empty else group.nlargest(1, 'unidadespresentacionlote')
         
         mejores_alternativas.append(mejor_opcion.iloc[0])
@@ -82,7 +84,7 @@ if uploaded_file:
     inventario_api_df = load_inventory_file()
 
     bodegas_disponibles = inventario_api_df['bodega'].unique().tolist()
-    bodega_seleccionada = st.multiselect("Seleccione la bodega", options=bodegas_disponibles, default=bodegas_disponibles)
+    bodega_seleccionada = st.multiselect("Seleccione la bodega", options=bodegas_disponibles, default=[])  # Sin selección inicial
 
     columnas_adicionales = st.multiselect(
         "Selecciona columnas adicionales para incluir en el archivo final:",
