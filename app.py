@@ -1,6 +1,7 @@
 import streamlit as st
 import pandas as pd
 from io import BytesIO
+import math
 
 # Cargar archivo de Inventario desde Google Drive (Sin caché)
 def load_inventory_file():
@@ -40,6 +41,12 @@ def procesar_faltantes(faltantes_df, inventario_api_df, columnas_adicionales, bo
         how='inner'
     )
 
+    # Calcular la cantidad necesaria para suplir el faltante según el embalaje
+    alternativas_disponibles_df['cantidad_necesaria'] = alternativas_disponibles_df.apply(
+        lambda row: math.ceil(row['faltante'] * row['embalaje'] / row['embalaje_alternativa']),
+        axis=1
+    )
+
     alternativas_disponibles_df.sort_values(by=['codart', 'unidadespresentacionlote'], inplace=True)
 
     mejores_alternativas = []
@@ -47,14 +54,14 @@ def procesar_faltantes(faltantes_df, inventario_api_df, columnas_adicionales, bo
         faltante_cantidad = group['faltante'].iloc[0]
 
         # Buscar en la bodega seleccionada
-        mejor_opcion_bodega = group[group['unidadespresentacionlote'] >= faltante_cantidad]
+        mejor_opcion_bodega = group[group['unidadespresentacionlote'] >= group['cantidad_necesaria']]
         mejor_opcion = mejor_opcion_bodega.head(1) if not mejor_opcion_bodega.empty else group.nlargest(1, 'unidadespresentacionlote')
         
         mejores_alternativas.append(mejor_opcion.iloc[0])
 
     resultado_final_df = pd.DataFrame(mejores_alternativas)
 
-    columnas_finales = ['cur', 'codart', 'faltante', 'embalaje', 'codart_alternativa', 'opcion_alternativa', 'embalaje_alternativa', 'unidadespresentacionlote', 'bodega']
+    columnas_finales = ['cur', 'codart', 'faltante', 'embalaje', 'codart_alternativa', 'opcion_alternativa', 'embalaje_alternativa', 'cantidad_necesaria', 'unidadespresentacionlote', 'bodega']
     columnas_finales.extend([col.lower() for col in columnas_adicionales])
     columnas_presentes = [col for col in columnas_finales if col in resultado_final_df.columns]
     resultado_final_df = resultado_final_df[columnas_presentes]
