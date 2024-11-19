@@ -41,6 +41,9 @@ def procesar_faltantes(faltantes_df, inventario_api_df, columnas_adicionales, bo
         how='inner'
     )
 
+    # Filtrar registros donde `opcion_alternativa` sea mayor a 0
+    alternativas_disponibles_df = alternativas_disponibles_df[alternativas_disponibles_df['opcion_alternativa'] > 0]
+
     # Agregar columna de cantidad necesaria ajustada por embalaje
     alternativas_disponibles_df['cantidad_necesaria'] = alternativas_disponibles_df.apply(
         lambda row: math.ceil(row['faltante'] * row['embalaje'] / row['embalaje_alternativa'])
