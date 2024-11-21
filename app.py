@@ -76,10 +76,10 @@ def procesar_faltantes(faltantes_df, inventario_api_df, columnas_adicionales, bo
 # Interfaz de Streamlit
 st.markdown(
     """
-    <h1 style="text-align: center; color: orange; font-family: Arial, sans-serif;">
+    <h1 style="text-align: center; color: #FF5800; font-family: Arial, sans-serif;">
         RAMEDICAS S.A.S.
     </h1>
-    <h3 style="text-align: center; font-family: Arial, sans-serif; color: #4A90E2;">
+    <h3 style="text-align: center; font-family: Arial, sans-serif; color: ##3A86FF;">
         Generador de Alternativas para Faltantes
     </h3>
     <p style="text-align: center; font-family: Arial, sans-serif; color: #6B6B6B;">
@@ -87,6 +87,7 @@ st.markdown(
     </p>
     """, unsafe_allow_html=True
 )
+
 
 # Botón para actualizar inventario
 if st.button('Actualizar inventario'):
