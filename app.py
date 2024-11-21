@@ -3,7 +3,7 @@ import pandas as pd
 import math
 from io import BytesIO
 
-# Cargar archivo de Inventario desde Google Drive (Sin caché)
+# Función para cargar archivo de inventario desde Google Drive
 def load_inventory_file():
     inventario_url = "https://docs.google.com/spreadsheets/d/1WV4la88gTl6OUgqQ5UM0IztNBn_k4VrC/export?format=xlsx&sheet=Hoja3"
     inventario_api_df = pd.read_excel(inventario_url, sheet_name="Hoja3")
@@ -15,7 +15,7 @@ def descargar_plantilla():
         plantilla = f.read()
     return plantilla
 
-# Función para procesar el archivo de faltantes y generar el resultado
+# Función para procesar el archivo de faltantes
 def procesar_faltantes(faltantes_df, inventario_api_df, columnas_adicionales, bodega_seleccionada):
     faltantes_df.columns = faltantes_df.columns.str.lower().str.strip()
     inventario_api_df.columns = inventario_api_df.columns.str.lower().str.strip()
@@ -28,6 +28,7 @@ def procesar_faltantes(faltantes_df, inventario_api_df, columnas_adicionales, bo
 
     cur_faltantes = faltantes_df['cur'].unique()
     alternativas_inventario_df = inventario_api_df[inventario_api_df['cur'].isin(cur_faltantes)]
+
 
     if bodega_seleccionada:
         alternativas_inventario_df = alternativas_inventario_df[alternativas_inventario_df['bodega'].isin(bodega_seleccionada)]
