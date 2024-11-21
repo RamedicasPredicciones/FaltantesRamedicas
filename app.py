@@ -73,8 +73,20 @@ def procesar_faltantes(faltantes_df, inventario_api_df, columnas_adicionales, bo
 
     return resultado_final_df
 
-# Streamlit UI
-st.title('Generador de Alternativas de Faltantes')
+# Interfaz de Streamlit
+st.markdown(
+    """
+    <h1 style="text-align: center; color: orange; font-family: Arial, sans-serif;">
+        RAMEDICAS S.A.S.
+    </h1>
+    <h3 style="text-align: center; font-family: Arial, sans-serif; color: #4A90E2;">
+        Generador de Alternativas para Faltantes
+    </h3>
+    <p style="text-align: center; font-family: Arial, sans-serif; color: #6B6B6B;">
+        Esta herramienta te permite buscar y consultar los códigos de productos por medio de su CUM.
+    </p>
+    """, unsafe_allow_html=True
+)
 
 # Botón para actualizar inventario
 if st.button('Actualizar inventario'):
@@ -87,7 +99,7 @@ if uploaded_file:
     inventario_api_df = load_inventory_file()
 
     bodegas_disponibles = inventario_api_df['bodega'].unique().tolist()
-    bodega_seleccionada = st.multiselect("Seleccione la bodega", options=bodegas_disponibles, default=[])  # Sin selección inicial
+    bodega_seleccionada = st.multiselect("Seleccione la bodega", options=bodegas_disponibles, default=[])
 
     columnas_adicionales = st.multiselect(
         "Selecciona columnas adicionales para incluir en el archivo final:",
