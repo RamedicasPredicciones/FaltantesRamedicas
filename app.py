@@ -9,6 +9,12 @@ def load_inventory_file():
     inventario_api_df = pd.read_excel(inventario_url, sheet_name="Hoja3")
     return inventario_api_df
 
+# Función para descargar la plantilla de faltantes
+def descargar_plantilla():
+    with open("Faltantes.xlsx", "rb") as f:
+        plantilla = f.read()
+    return plantilla
+
 # Función para procesar el archivo de faltantes y generar el resultado
 def procesar_faltantes(faltantes_df, inventario_api_df, columnas_adicionales, bodega_seleccionada):
     faltantes_df.columns = faltantes_df.columns.str.lower().str.strip()
