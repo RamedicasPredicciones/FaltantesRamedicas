@@ -83,7 +83,7 @@ st.markdown(
         Generador de Alternativas para Faltantes
     </h3>
     <p style="text-align: center; font-family: Arial, sans-serif; color: #6B6B6B;">
-        Esta herramienta te permite buscar y consultar los códigos de productos por medio de su CUM.
+        Esta herramienta te permite buscar el código aternativa para cada faltante de los pedidos en Ramédicas con sus respectivo inventario actual.
     </p>
     """, unsafe_allow_html=True
 )
