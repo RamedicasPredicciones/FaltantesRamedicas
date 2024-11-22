@@ -75,7 +75,6 @@ def procesar_faltantes(faltantes_df, inventario_api_df, columnas_adicionales, bo
     resultado_final_df = resultado_final_df[columnas_presentes]
 
     return resultado_final_df
-
 # Interfaz de Streamlit
 st.markdown(
     """
@@ -95,10 +94,10 @@ st.markdown(
 def descargar_plantilla():
     return PLANTILLA_URL  # Asegúrate de que PLANTILLA_URL esté definida con el enlace correcto
 
-# Sección de botones estilizados
+# Sección de botones alineados a la izquierda
 st.markdown(
     f"""
-    <div style="display: flex; flex-direction: column; align-items: center; gap: 20px; margin-top: 20px;">
+    <div style="display: flex; flex-direction: column; align-items: flex-start; gap: 10px; margin-top: 20px;">
         <a href="{descargar_plantilla()}" download>
             <button style="background-color: #FF5800; color: white; padding: 10px 15px; border: none; border-radius: 5px; cursor: pointer;">
                 Descargar plantilla de faltantes
