@@ -91,8 +91,21 @@ st.markdown(
     """, unsafe_allow_html=True
 )
 
-# Botón para descargar la plantilla
-st.markdown(f"[Descargar plantilla de faltantes](<{PLANTILLA_URL}>)", unsafe_allow_html=True)
+# Función para devolver la URL de la plantilla
+def descargar_plantilla():
+    return PLANTILLA_URL  # Asegúrate de que PLANTILLA_URL esté definida con el enlace correcto
+
+# Botón para descargar la plantilla con diseño personalizado
+st.markdown(
+    f"""
+    <a href="{descargar_plantilla()}" download>
+        <button style="background-color: #FF5800; color: white; padding: 10px 15px; border: none; border-radius: 5px; cursor: pointer;">
+            Descargar plantilla de faltantes
+        </button>
+    </a>
+    """,
+    unsafe_allow_html=True
+)
 
 # Botón para actualizar inventario
 if st.button('Actualizar inventario'):
