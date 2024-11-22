@@ -107,6 +107,8 @@ st.markdown(
     unsafe_allow_html=True
 )
 
+
+
 # Botón para actualizar inventario
 if st.button('Actualizar inventario'):
     st.cache_data.clear()  # Limpia la caché para cargar el archivo actualizado
