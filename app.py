@@ -95,24 +95,24 @@ st.markdown(
 def descargar_plantilla():
     return PLANTILLA_URL  # Asegúrate de que PLANTILLA_URL esté definida con el enlace correcto
 
-# Botón para descargar la plantilla con diseño personalizado
+# Sección de botones estilizados
 st.markdown(
     f"""
-    <a href="{descargar_plantilla()}" download>
-        <button style="background-color: #FF5800; color: white; padding: 10px 15px; border: none; border-radius: 5px; cursor: pointer;">
-            Descargar plantilla de faltantes
+    <div style="display: flex; flex-direction: column; align-items: center; gap: 20px; margin-top: 20px;">
+        <a href="{descargar_plantilla()}" download>
+            <button style="background-color: #FF5800; color: white; padding: 10px 15px; border: none; border-radius: 5px; cursor: pointer;">
+                Descargar plantilla de faltantes
+            </button>
+        </a>
+        <button onclick="window.location.reload()" style="background-color: #3A86FF; color: white; padding: 10px 15px; border: none; border-radius: 5px; cursor: pointer;">
+            Actualizar inventario
         </button>
-    </a>
+    </div>
     """,
     unsafe_allow_html=True
 )
 
-
-
-# Botón para actualizar inventario
-if st.button('Actualizar inventario'):
-    st.cache_data.clear()  # Limpia la caché para cargar el archivo actualizado
-
+# Archivo cargado por el usuario
 uploaded_file = st.file_uploader("Sube tu archivo de faltantes", type="xlsx")
 
 if uploaded_file:
