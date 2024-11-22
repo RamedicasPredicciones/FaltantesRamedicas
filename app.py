@@ -62,3 +62,19 @@ def procesar_faltantes(faltantes_df, inventario_api_df, columnas_adicionales, bo
     resultado_final_df = resultado_final_df[columnas_presentes]
 
     return resultado_final_df
+
+
+# Función para exportar a Excel
+def to_excel(df):
+    output = BytesIO()
+    with pd.ExcelWriter(output, engine='openpyxl') as writer:
+        df.to_excel(writer, index=False, sheet_name='Alternativas')
+    return output.getvalue()
+
+st.download_button(
+    label="Descargar archivo de alternativas",
+    data=to_excel(resultado_final_df),
+    file_name='alternativas_disponibles.xlsx',
+    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+)
+
