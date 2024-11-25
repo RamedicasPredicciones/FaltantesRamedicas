@@ -119,12 +119,32 @@ uploaded_file = st.file_uploader("Sube tu archivo de faltantes", type="xlsx")
 if uploaded_file:
     faltantes_df = pd.read_excel(uploaded_file)
     inventario_api_df = load_inventory_file()
-    columnas_adicionales = []  # Aquí puedes agregar las columnas adicionales si las tienes
-    bodega_seleccionada = []  # Puedes personalizar la selección de bodegas
-    resultado_df = procesar_faltantes(faltantes_df, inventario_api_df, columnas_adicionales, bodega_seleccionada)
 
-    # Mostrar el resultado final
-    if not resultado_df.empty:
-        st.write("Resultados de alternativas encontradas:", resultado_df)
-    else:
-        st.warning("No se encontraron alternativas para los faltantes.")
+    bodegas_disponibles = inventario_api_df['bodega'].unique().tolist()
+    bodega_seleccionada = st.multiselect("Seleccione la bodega", options=bodegas_disponibles, default=[])
+
+    columnas_adicionales = st.multiselect(
+        "Selecciona columnas adicionales para incluir en el archivo final:",
+        options=["presentacionart", "numlote", "fechavencelote"],
+        default=[]
+    )
+
+    resultado_final_df = procesar_faltantes(faltantes_df, inventario_api_df, columnas_adicionales, bodega_seleccionada)
+
+    if not resultado_final_df.empty:
+        st.write("Archivo procesado correctamente.")
+        st.dataframe(resultado_final_df)
+
+        # Función para exportar a Excel
+        def to_excel(df):
+            output = BytesIO()
+            with pd.ExcelWriter(output, engine='openpyxl') as writer:
+                df.to_excel(writer, index=False, sheet_name='Alternativas')
+            return output.getvalue()
+
+        st.download_button(
+            label="Descargar archivo de alternativas",
+            data=to_excel(resultado_final_df),
+            file_name='alternativas_disponibles.xlsx',
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        )
