@@ -13,8 +13,6 @@ def load_inventory_file():
 def procesar_faltantes(faltantes_df, inventario_api_df, columnas_adicionales, bodega_seleccionada):
     faltantes_df.columns = faltantes_df.columns.str.lower().str.strip()
     inventario_api_df.columns = inventario_api_df.columns.str.lower().str.strip()
-@@ -63,18 +77,74 @@ def procesar_faltantes(faltantes_df, inventario_api_df, columnas_adicionales, bo
-
     return resultado_final_df
 
 # Interfaz de Streamlit
