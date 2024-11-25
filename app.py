@@ -87,5 +87,4 @@ if uploaded_file:
             label="Descargar archivo de alternativas",
             data=to_excel(resultado_final_df),
             file_name='alternativas_disponibles.xlsx',
-            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-        )
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
