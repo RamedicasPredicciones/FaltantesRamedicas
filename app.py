@@ -82,9 +82,10 @@ def procesar_faltantes(faltantes_df, inventario_api_df, columnas_adicionales, bo
         axis=1
     )
 
-    # Calcular el faltante restante del código principal
+    # Ajustar la lógica para calcular el faltante restante del producto principal
     resultado_final_df['faltante_restante principal'] = resultado_final_df.apply(
-        lambda row: row['faltante'] - row['Existencias codart alternativa'] if row['suplido'] == 'NO' else 0,
+        lambda row: row['faltante'] - math.ceil(row['cantidad_necesaria'] * row['embalaje_alternativa'] / row['embalaje']) 
+        if row['suplido'] == 'NO' else 0,
         axis=1
     )
 
