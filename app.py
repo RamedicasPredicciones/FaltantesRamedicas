@@ -69,8 +69,19 @@ def procesar_faltantes(faltantes_df, inventario_api_df, columnas_adicionales, bo
 
     resultado_final_df = pd.DataFrame(mejores_alternativas)
 
+    # Nuevas columnas para verificar si el faltante fue suplido y el faltante restante
+    resultado_final_df['suplido'] = resultado_final_df.apply(
+        lambda row: 'SI' if row['unidadespresentacionlote'] >= row['cantidad_necesaria'] else 'NO',
+        axis=1
+    )
+
+    resultado_final_df['faltante_restante'] = resultado_final_df.apply(
+        lambda row: row['cantidad_necesaria'] - row['unidadespresentacionlote'] if row['suplido'] == 'NO' else 0,
+        axis=1
+    )
+
     columnas_finales = ['cur', 'codart', 'faltante', 'embalaje', 'codart_alternativa', 'opcion_alternativa', 
-                        'embalaje_alternativa', 'cantidad_necesaria', 'unidadespresentacionlote', 'bodega', 'carta']
+                        'embalaje_alternativa', 'cantidad_necesaria', 'unidadespresentacionlote', 'bodega', 'carta', 'suplido', 'faltante_restante']
     columnas_finales.extend([col.lower() for col in columnas_adicionales])
     columnas_presentes = [col for col in columnas_finales if col in resultado_final_df.columns]
     resultado_final_df = resultado_final_df[columnas_presentes]
