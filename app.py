@@ -82,17 +82,10 @@ def procesar_faltantes(faltantes_df, inventario_api_df, columnas_adicionales, bo
         axis=1
     )
 
-    # Ajustar la lógica para calcular el faltante restante del producto principal
-    resultado_final_df['faltante_restante principal'] = resultado_final_df.apply(
-        lambda row: row['faltante'] - math.ceil(row['cantidad_necesaria'] * row['embalaje_alternativa'] / row['embalaje']) 
-        if row['suplido'] == 'NO' else 0,
-        axis=1
-    )
-
     # Selección de las columnas finales a mostrar
     columnas_finales = ['cur', 'codart', 'faltante', 'embalaje', 'codart_alternativa', 'opcion_alternativa', 
                         'embalaje_alternativa', 'cantidad_necesaria', 'Existencias codart alternativa', 'bodega', 'suplido', 
-                        'faltante_restante alternativa', 'faltante_restante principal']
+                        'faltante_restante alternativa']
     columnas_finales.extend([col.lower() for col in columnas_adicionales])
     columnas_presentes = [col for col in columnas_finales if col in resultado_final_df.columns]
     resultado_final_df = resultado_final_df[columnas_presentes]
