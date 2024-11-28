@@ -1,18 +1,25 @@
 import streamlit as st
 import pandas as pd
 import math
+import requests
 from io import BytesIO
 
-# Enlace de la plantilla en Google Sheets
-PLANTILLA_URL = "https://docs.google.com/spreadsheets/d/1CPMBfCiuXq2_l8KY68HgexD-kyNVJ2Ml/export?format=xlsx"
+# URL de la API
+API_URL = "https://apkit.ramedicas.com/api/items/ws-batchsunits?token=3f8857af327d7f1adb005b81a12743bc17fef5c48f228103198100d4b032f556"
 
-# Función para cargar archivo de inventario desde Google Drive
+# Función para cargar archivo de inventario desde la API
 def load_inventory_file():
-    inventario_url = "https://docs.google.com/spreadsheets/d/1WV4la88gTl6OUgqQ5UM0IztNBn_k4VrC/export?format=xlsx&sheet=Hoja3"
-    inventario_api_df = pd.read_excel(inventario_url, sheet_name="Hoja3")
-    return inventario_api_df
+    try:
+        response = requests.get(API_URL, verify=False)  # verify=False desactiva la verificación SSL
+        response.raise_for_status()
+        data = response.json()
+        inventario_api_df = pd.DataFrame(data)
+        return inventario_api_df
+    except requests.exceptions.RequestException as e:
+        st.error(f"Error al cargar el inventario desde la API: {e}")
+        return pd.DataFrame()  # Devuelve un DataFrame vacío en caso de error
 
-# Función para procesar el archivo de faltantes
+# Función para procesar el archivo de faltantes (sin cambios)
 def procesar_faltantes(faltantes_df, inventario_api_df, columnas_adicionales, bodega_seleccionada):
     faltantes_df.columns = faltantes_df.columns.str.lower().str.strip()
     inventario_api_df.columns = inventario_api_df.columns.str.lower().str.strip()
@@ -92,7 +99,7 @@ def procesar_faltantes(faltantes_df, inventario_api_df, columnas_adicionales, bo
 
     return resultado_final_df
 
-# Interfaz de Streamlit
+# Interfaz de Streamlit (sin cambios)
 st.markdown(
     """
     <h1 style="text-align: center; color: #FF5800; font-family: Arial, sans-serif;">
@@ -107,27 +114,6 @@ st.markdown(
     """, unsafe_allow_html=True
 )
 
-# Función para devolver la URL de la plantilla
-def descargar_plantilla():
-    return PLANTILLA_URL  # Asegúrate de que PLANTILLA_URL esté definida con el enlace correcto
-
-# Sección de botones alineados a la izquierda
-st.markdown(
-    f"""
-    <div style="display: flex; flex-direction: column; align-items: flex-start; gap: 10px; margin-top: 20px;">
-        <a href="{descargar_plantilla()}" download>
-            <button style="background-color: #FF5800; color: white; padding: 10px 15px; border: none; border-radius: 5px; cursor: pointer;">
-                Descargar plantilla de faltantes
-            </button>
-        </a>
-        <button onclick="window.location.reload()" style="background-color: #3A86FF; color: white; padding: 10px 15px; border: none; border-radius: 5px; cursor: pointer;">
-            Actualizar inventario
-        </button>
-    </div>
-    """,
-    unsafe_allow_html=True
-)
-
 # Archivo cargado por el usuario
 uploaded_file = st.file_uploader("Sube tu archivo de faltantes", type="xlsx")
 
@@ -135,31 +121,34 @@ if uploaded_file:
     faltantes_df = pd.read_excel(uploaded_file)
     inventario_api_df = load_inventory_file()
 
-    bodegas_disponibles = inventario_api_df['bodega'].unique().tolist()
-    bodega_seleccionada = st.multiselect("Seleccione la bodega", options=bodegas_disponibles, default=[])
+    if not inventario_api_df.empty:
+        bodegas_disponibles = inventario_api_df['bodega'].unique().tolist()
+        bodega_seleccionada = st.multiselect("Seleccione la bodega", options=bodegas_disponibles, default=[])
 
-    columnas_adicionales = st.multiselect(
-        "Selecciona columnas adicionales para incluir en el archivo final:",
-        options=["presentacionart", "numlote", "fechavencelote"],
-        default=[]
-    )
-
-    resultado_final_df = procesar_faltantes(faltantes_df, inventario_api_df, columnas_adicionales, bodega_seleccionada)
-
-    if not resultado_final_df.empty:
-        st.write("Archivo procesado correctamente.")
-        st.dataframe(resultado_final_df)
-
-        # Función para exportar a Excel
-        def to_excel(df):
-            output = BytesIO()
-            with pd.ExcelWriter(output, engine='openpyxl') as writer:
-                df.to_excel(writer, index=False, sheet_name='Alternativas')
-            return output.getvalue()
-
-        st.download_button(
-            label="Descargar archivo de alternativas",
-            data=to_excel(resultado_final_df),
-            file_name='alternativas_disponibles.xlsx',
-            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        columnas_adicionales = st.multiselect(
+            "Selecciona columnas adicionales para incluir en el archivo final:",
+            options=["presentacionart", "numlote", "fechavencelote"],
+            default=[]
         )
+
+        resultado_final_df = procesar_faltantes(faltantes_df, inventario_api_df, columnas_adicionales, bodega_seleccionada)
+
+        if not resultado_final_df.empty:
+            st.write("Archivo procesado correctamente.")
+            st.dataframe(resultado_final_df)
+
+            # Función para exportar a Excel
+            def to_excel(df):
+                output = BytesIO()
+                with pd.ExcelWriter(output, engine='openpyxl') as writer:
+                    df.to_excel(writer, index=False, sheet_name='Alternativas')
+                return output.getvalue()
+
+            st.download_button(
+                label="Descargar archivo de alternativas",
+                data=to_excel(resultado_final_df),
+                file_name='alternativas_disponibles.xlsx',
+                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            )
+    else:
+        st.error("No se pudo cargar el inventario desde la API.")
