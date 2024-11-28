@@ -7,6 +7,13 @@ from io import BytesIO
 # URL de la API
 API_URL = "https://apkit.ramedicas.com/api/items/ws-batchsunits?token=3f8857af327d7f1adb005b81a12743bc17fef5c48f228103198100d4b032f556"
 
+# URL de la plantilla en Google Sheets
+PLANTILLA_URL = "https://docs.google.com/spreadsheets/d/1CPMBfCiuXq2_l8KY68HgexD-kyNVJ2Ml/export?format=xlsx"
+
+# Función para devolver la URL de la plantilla
+def descargar_plantilla():
+    return PLANTILLA_URL  # Asegúrate de que PLANTILLA_URL esté definida con el enlace correcto
+
 # Función para cargar archivo de inventario desde la API
 def load_inventory_file():
     try:
@@ -99,7 +106,7 @@ def procesar_faltantes(faltantes_df, inventario_api_df, columnas_adicionales, bo
 
     return resultado_final_df
 
-# Interfaz de Streamlit (sin cambios)
+# Interfaz de Streamlit
 st.markdown(
     """
     <h1 style="text-align: center; color: #FF5800; font-family: Arial, sans-serif;">
@@ -112,6 +119,23 @@ st.markdown(
         Esta herramienta te permite buscar el código alternativa para cada faltante de los pedidos en Ramédicas con su respectivo inventario actual.
     </p>
     """, unsafe_allow_html=True
+)
+
+# Botones de descarga y actualización
+st.markdown(
+    f"""
+    <div style="display: flex; flex-direction: column; align-items: flex-start; gap: 10px; margin-top: 20px;">
+        <a href="{descargar_plantilla()}" download>
+            <button style="background-color: #FF5800; color: white; padding: 10px 15px; border: none; border-radius: 5px; cursor: pointer;">
+                Descargar plantilla de faltantes
+            </button>
+        </a>
+        <button onclick="window.location.reload()" style="background-color: #3A86FF; color: white; padding: 10px 15px; border: none; border-radius: 5px; cursor: pointer;">
+            Actualizar inventario
+        </button>
+    </div>
+    """,
+    unsafe_allow_html=True
 )
 
 # Archivo cargado por el usuario
