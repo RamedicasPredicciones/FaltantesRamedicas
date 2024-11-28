@@ -7,26 +7,52 @@ from io import BytesIO
 # URL de la API
 API_URL = "https://apkit.ramedicas.com/api/items/ws-batchsunits?token=3f8857af327d7f1adb005b81a12743bc17fef5c48f228103198100d4b032f556"
 
+# URL del archivo de Excel adicional
+EXCEL_URL = "https://docs.google.com/spreadsheets/d/19myWtMrvsor2P_XHiifPgn8YKdTWE39O/export?format=xlsx"
+
 # URL de la plantilla en Google Sheets
 PLANTILLA_URL = "https://docs.google.com/spreadsheets/d/1CPMBfCiuXq2_l8KY68HgexD-kyNVJ2Ml/export?format=xlsx"
 
 # Función para devolver la URL de la plantilla
 def descargar_plantilla():
-    return PLANTILLA_URL  # Asegúrate de que PLANTILLA_URL esté definida con el enlace correcto
+    return PLANTILLA_URL
 
-# Función para cargar archivo de inventario desde la API
+# Función para cargar el inventario desde la API y combinarlo con el archivo Excel adicional
 def load_inventory_file():
     try:
-        response = requests.get(API_URL, verify=False)  # verify=False desactiva la verificación SSL
+        # Cargar inventario desde la API
+        response = requests.get(API_URL, verify=False)
         response.raise_for_status()
-        data = response.json()
-        inventario_api_df = pd.DataFrame(data)
+        api_data = response.json()
+        inventario_api_df = pd.DataFrame(api_data)
+        
+        # Renombrar la columna "Caja" a "Existencias codart alternativa"
+        inventario_api_df.rename(columns={"Caja": "Existencias codart alternativa"}, inplace=True)
+        
+        # Cargar datos adicionales desde el Excel
+        datos_adicionales_df = pd.read_excel(EXCEL_URL)
+        datos_adicionales_df.columns = datos_adicionales_df.columns.str.lower().str.strip()  # Normalizar columnas
+        
+        # Realizar el merge entre los dos datasets usando "codArt" y "codart"
+        inventario_api_df = inventario_api_df.merge(
+            datos_adicionales_df[['codart', 'cur', 'carta', 'embalaje']], 
+            left_on="codArt", 
+            right_on="codart", 
+            how="left"
+        )
+        
+        # Eliminar duplicados innecesarios si surgieron tras el merge
+        inventario_api_df.drop_duplicates(inplace=True)
         return inventario_api_df
+    
     except requests.exceptions.RequestException as e:
         st.error(f"Error al cargar el inventario desde la API: {e}")
-        return pd.DataFrame()  # Devuelve un DataFrame vacío en caso de error
+        return pd.DataFrame()
+    except Exception as e:
+        st.error(f"Error al combinar inventario con datos adicionales: {e}")
+        return pd.DataFrame()
 
-# Función para procesar el archivo de faltantes (sin cambios)
+# Función para procesar el archivo de faltantes
 def procesar_faltantes(faltantes_df, inventario_api_df, columnas_adicionales, bodega_seleccionada):
     faltantes_df.columns = faltantes_df.columns.str.lower().str.strip()
     inventario_api_df.columns = inventario_api_df.columns.str.lower().str.strip()
@@ -43,13 +69,13 @@ def procesar_faltantes(faltantes_df, inventario_api_df, columnas_adicionales, bo
     if bodega_seleccionada:
         alternativas_inventario_df = alternativas_inventario_df[alternativas_inventario_df['bodega'].isin(bodega_seleccionada)]
 
-    alternativas_disponibles_df = alternativas_inventario_df[alternativas_inventario_df['unidadespresentacionlote'] > 0]
+    alternativas_disponibles_df = alternativas_inventario_df[alternativas_inventario_df['existencias codart alternativa'] > 0]
 
     alternativas_disponibles_df.rename(columns={
         'codart': 'codart_alternativa',
         'opcion': 'opcion_alternativa',
         'embalaje': 'embalaje_alternativa',
-        'unidadespresentacionlote': 'Existencias codart alternativa'
+        'existencias codart alternativa': 'Existencias codart alternativa'
     }, inplace=True)
 
     alternativas_disponibles_df = pd.merge(
