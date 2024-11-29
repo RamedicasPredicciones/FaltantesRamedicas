@@ -33,9 +33,17 @@ def load_inventory_file():
         datos_adicionales_df = pd.read_excel(EXCEL_URL)
         datos_adicionales_df.columns = datos_adicionales_df.columns.str.lower().str.strip()  # Normalizar columnas
         
+        # Verificar que las columnas necesarias estén presentes
+        columnas_requeridas = ['codart', 'cur', 'carta', 'embalaje']
+        columnas_disponibles = [col for col in columnas_requeridas if col in datos_adicionales_df.columns]
+        
+        if not columnas_disponibles:
+            st.warning("El archivo de Excel adicional no contiene las columnas requeridas.")
+            return inventario_api_df
+
         # Realizar el merge entre los dos datasets usando "codArt" y "codart"
         inventario_api_df = inventario_api_df.merge(
-            datos_adicionales_df[['codart', 'cur', 'carta', 'embalaje']], 
+            datos_adicionales_df[columnas_disponibles], 
             left_on="codArt", 
             right_on="codart", 
             how="left"
