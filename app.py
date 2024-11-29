@@ -36,15 +36,21 @@ def procesar_faltantes(faltantes_df, inventario_api_df, excel_inventory_df, colu
         st.error(f"El archivo de faltantes debe contener las columnas: {', '.join(columnas_necesarias)}")
         return pd.DataFrame()  # Devuelve un DataFrame vacío si faltan columnas
 
-    cur_faltantes = faltantes_df['cur'].unique()
-    alternativas_inventario_df = inventario_api_df[inventario_api_df['cur'].isin(cur_faltantes)]
+    # Convertir 'codart' a mayúsculas en la API para hacer la comparación
+    inventario_api_df['codart'] = inventario_api_df['codart'].str.upper()
 
+    # Buscar alternativas en la API usando 'codart' y 'cur' del archivo de faltantes
+    faltantes_df['codart'] = faltantes_df['codart'].str.upper()  # Asegurarse de que 'codart' esté en mayúsculas
+    alternativas_inventario_df = inventario_api_df[inventario_api_df['codart'].isin(faltantes_df['codart'])]
+
+    # Si se seleccionó una bodega, filtrar
     if bodega_seleccionada:
         alternativas_inventario_df = alternativas_inventario_df[alternativas_inventario_df['bodega'].isin(bodega_seleccionada)]
 
+    # Filtrar inventario donde haya unidades disponibles
     alternativas_disponibles_df = alternativas_inventario_df[alternativas_inventario_df['unidadespresentacionlote'] > 0]
 
-    # Agregar las columnas de alternativas desde el archivo de Excel basado en 'codart'
+    # Unir con el archivo de Excel de inventario usando 'codart'
     alternativas_disponibles_df = pd.merge(
         alternativas_disponibles_df, 
         excel_inventory_df[['codart', 'cur', 'embalaje']], 
@@ -155,37 +161,26 @@ st.markdown(
 )
 
 # Cargar los archivos cargados por el usuario
-uploaded_file = st.file_uploader("Sube tu archivo de faltantes", type="xlsx")
+uploaded_file = st.file_uploader("Sube un archivo de faltantes en Excel", type="xlsx")
 
-if uploaded_file:
+if uploaded_file is not None:
     faltantes_df = pd.read_excel(uploaded_file)
+
+    # Filtrar bodega por defecto
+    bodega_seleccionada = st.multiselect("Filtra por bodega", faltantes_df['bodega'].unique(), default=faltantes_df['bodega'].unique())
+    
+    # Mostrar las alternativas sugeridas
+    st.write("Cargando las alternativas...", unsafe_allow_html=True)
     inventario_api_df = load_inventory_api()
     excel_inventory_df = load_excel_inventory()
 
-    bodegas_disponibles = inventario_api_df['bodega'].unique().tolist()
-    bodega_seleccionada = st.multiselect("Seleccione la bodega", options=bodegas_disponibles, default=[])
-
-    columnas_adicionales = st.multiselect(
-        "Selecciona columnas adicionales para incluir en el archivo final:",
-        options=["presentacionart", "numlote", "disponibilidadlote", "fechaimportacion"]
-    )
-
-    if st.button("Generar archivo de alternativas"):
-        if not faltantes_df.empty and not inventario_api_df.empty and not excel_inventory_df.empty:
-            resultado_final_df = procesar_faltantes(faltantes_df, inventario_api_df, excel_inventory_df, columnas_adicionales, bodega_seleccionada)
-            if not resultado_final_df.empty:
-                st.write("Archivo generado exitosamente!")
-                st.dataframe(resultado_final_df)
-
-                # Crear archivo Excel con el DataFrame de resultados
-                output = BytesIO()
-                with pd.ExcelWriter(output, engine="xlsxwriter") as writer:
-                    resultado_final_df.to_excel(writer, index=False, sheet_name="Alternativas")
-                st.download_button(
-                    label="Descargar archivo de alternativas",
-                    data=output.getvalue(),
-                    file_name="alternativas_faltantes.xlsx",
-                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-                )
+    if not inventario_api_df.empty and not excel_inventory_df.empty:
+        resultado_final_df = procesar_faltantes(faltantes_df, inventario_api_df, excel_inventory_df, ["cur", "codart", "opcion"], bodega_seleccionada)
+        
+        if not resultado_final_df.empty:
+            st.write("Alternativas encontradas:")
+            st.dataframe(resultado_final_df)
         else:
-            st.error("Por favor, asegúrate de haber cargado los archivos correctamente.")
+            st.error("No se encontraron alternativas.")
+    else:
+        st.error("No se pudo cargar el inventario de la API o el archivo de Excel.")
