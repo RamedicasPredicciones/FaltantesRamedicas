@@ -77,41 +77,27 @@ def procesar_faltantes(faltantes_df, inventario_api_df, columnas_adicionales, bo
         st.error("El inventario no contiene la columna 'Existencias codart alternativa'.")
         return pd.DataFrame()
 
-    if "opcion" in inventario_api_df.columns:
-        inventario_api_df.rename(columns={"opcion": "opcion_alternativa"}, inplace=True)
-
-    if "opcion_alternativa" not in inventario_api_df.columns:
-        st.warning("El inventario no contiene la columna 'opcion_alternativa'. Verifique los datos.")
-        return pd.DataFrame()
-
-    # Convertir 'opcion_alternativa' a numérico y limpiar datos no válidos
-    inventario_api_df['opcion_alternativa'] = pd.to_numeric(inventario_api_df['opcion_alternativa'], errors='coerce')
-    inventario_api_df = inventario_api_df.dropna(subset=['opcion_alternativa'])
-
-    cur_faltantes = faltantes_df['cur'].unique()
-    alternativas_inventario_df = inventario_api_df[inventario_api_df['cur'].isin(cur_faltantes)]
+    # Manejo de columnas adicionales
+    columnas_adicionales = [col for col in columnas_adicionales if col in inventario_api_df.columns]
 
     if bodega_seleccionada:
-        alternativas_inventario_df = alternativas_inventario_df[alternativas_inventario_df['bodega'].isin(bodega_seleccionada)]
+        inventario_api_df = inventario_api_df[inventario_api_df['bodega'].isin(bodega_seleccionada)]
 
-    alternativas_disponibles_df = alternativas_inventario_df[alternativas_inventario_df['existencias codart alternativa'] > 0]
+    alternativas_disponibles_df = inventario_api_df[inventario_api_df['existencias codart alternativa'] > 0]
 
+    # Renombrar columnas para diferenciarlas
     alternativas_disponibles_df.rename(columns={
         'codart': 'codart_alternativa',
-        'embalaje': 'embalaje_alternativa',
-        'existencias codart alternativa': 'Existencias codart alternativa'
+        'embalaje': 'embalaje_alternativa'
     }, inplace=True)
 
+    # Merge con faltantes
     alternativas_disponibles_df = pd.merge(
         faltantes_df[['cur', 'codart', 'faltante', 'embalaje']],
         alternativas_disponibles_df,
         on='cur',
         how='inner'
     )
-
-    alternativas_disponibles_df['opcion_alternativa'] = pd.to_numeric(
-        alternativas_disponibles_df['opcion_alternativa'], errors='coerce'
-    ).fillna(0)
 
     alternativas_disponibles_df['cantidad_necesaria'] = alternativas_disponibles_df.apply(
         lambda row: math.ceil(row['faltante'] * row['embalaje'] / row['embalaje_alternativa'])
@@ -120,15 +106,15 @@ def procesar_faltantes(faltantes_df, inventario_api_df, columnas_adicionales, bo
         axis=1
     )
 
-    alternativas_disponibles_df = alternativas_disponibles_df[
-        alternativas_disponibles_df['cantidad_necesaria'].notnull()
+    alternativas_disponibles_df.dropna(subset=['cantidad_necesaria'], inplace=True)
+
+    columnas_resultado = [
+        'cur', 'codart', 'faltante', 'embalaje', 'codart_alternativa',
+        'embalaje_alternativa', 'cantidad_necesaria', 'existencias codart alternativa', 'bodega'
     ]
 
-    columnas_resultado = ['cur', 'codart', 'faltante', 'embalaje', 'codart_alternativa', 'opcion_alternativa', 
-                        'embalaje_alternativa', 'cantidad_necesaria', 'Existencias codart alternativa', 'bodega', 'suplido', 
-                        'faltante_restante alternativa']
-    
-    return alternativas_disponibles_df[columnas_resultado]
+    return alternativas_disponibles_df[columnas_resultado + columnas_adicionales]
+
 
 # Interfaz de Streamlit
 st.markdown(
