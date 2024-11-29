@@ -4,20 +4,16 @@ import math
 import requests
 from io import BytesIO
 
-# URL de la API
+# URLs de la API y los archivos
 API_URL = "https://apkit.ramedicas.com/api/items/ws-batchsunits?token=3f8857af327d7f1adb005b81a12743bc17fef5c48f228103198100d4b032f556"
-
-# URL del archivo de Excel adicional
 EXCEL_URL = "https://docs.google.com/spreadsheets/d/19myWtMrvsor2P_XHiifPgn8YKdTWE39O/export?format=xlsx"
-
-# URL de la plantilla en Google Sheets
 PLANTILLA_URL = "https://docs.google.com/spreadsheets/d/1CPMBfCiuXq2_l8KY68HgexD-kyNVJ2Ml/export?format=xlsx"
 
 # Función para devolver la URL de la plantilla
 def descargar_plantilla():
     return PLANTILLA_URL
 
-# Función para cargar el inventario desde la API y combinarlo con el archivo Excel adicional
+# Función para cargar inventario desde la API y archivo adicional
 def load_inventory_file():
     try:
         # Cargar inventario desde la API
@@ -128,57 +124,80 @@ def procesar_faltantes(faltantes_df, inventario_api_df, columnas_adicionales, bo
         alternativas_disponibles_df['cantidad_necesaria'].notnull()
     ]
 
-    columnas_resultado = ['cur', 'codart', 'faltante', 'embalaje', 'codart_alternativa', 
-                          'embalaje_alternativa', 'Existencias codart alternativa', 'cantidad_necesaria']
-
-    # Incluir columnas adicionales si están en el inventario
-    for columna in columnas_adicionales:
-        if columna in inventario_api_df.columns:
-            columnas_resultado.append(columna)
-
+    columnas_resultado = ['cur', 'codart', 'faltante', 'embalaje', 'codart_alternativa', 'opcion_alternativa', 
+                        'embalaje_alternativa', 'cantidad_necesaria', 'Existencias codart alternativa', 'bodega', 'suplido', 
+                        'faltante_restante alternativa']
+    
     return alternativas_disponibles_df[columnas_resultado]
 
-# Lógica principal de la aplicación
-st.title("Gestión de Inventario y Faltantes")
+# Interfaz de Streamlit
+st.markdown(
+    """
+    <h1 style="text-align: center; color: #FF5800; font-family: Arial, sans-serif;">
+        RAMEDICAS S.A.S.
+    </h1>
+    <h3 style="text-align: center; font-family: Arial, sans-serif; color: #3A86FF;">
+        Generador de Alternativas para Faltantes
+    </h3>
+    <p style="text-align: center; font-family: Arial, sans-serif; color: #6B6B6B;">
+        Esta herramienta te permite buscar el código alternativa para cada faltante de los pedidos en Ramédicas con su respectivo inventario actual.
+    </p>
+    """, unsafe_allow_html=True
+)
 
-# Botón para descargar la plantilla
-if st.button("Descargar plantilla"):
-    st.markdown(f"[Descargar plantilla]({descargar_plantilla()})", unsafe_allow_html=True)
+# Función para devolver la URL de la plantilla
+def descargar_plantilla():
+    return PLANTILLA_URL  # Asegúrate de que PLANTILLA_URL esté definida con el enlace correcto
 
-# Cargar archivo de faltantes
-archivo_faltantes = st.file_uploader("Sube el archivo de faltantes (Excel)", type=["xlsx"])
+# Sección de botones alineados a la izquierda
+st.markdown(
+    f"""
+    <div style="display: flex; flex-direction: column; align-items: flex-start; gap: 10px; margin-top: 20px;">
+        <a href="{descargar_plantilla()}" download>
+            <button style="background-color: #FF5800; color: white; padding: 10px 15px; border: none; border-radius: 5px; cursor: pointer;">
+                Descargar plantilla de faltantes
+            </button>
+        </a>
+        <button onclick="window.location.reload()" style="background-color: #3A86FF; color: white; padding: 10px 15px; border: none; border-radius: 5px; cursor: pointer;">
+            Actualizar inventario
+        </button>
+    </div>
+    """,
+    unsafe_allow_html=True
+)
 
-# Selección de bodegas
-bodegas_disponibles = ["Bodega 1", "Bodega 2", "Bodega 3"]  # Reemplaza con tus bodegas reales
-bodega_seleccionada = st.multiselect("Selecciona las bodegas para filtrar:", bodegas_disponibles)
+# Archivo cargado por el usuario
+uploaded_file = st.file_uploader("Sube tu archivo de faltantes", type="xlsx")
 
-# Cargar y combinar inventario
-st.subheader("Cargando inventario desde la API...")
-inventario_api_df = load_inventory_file()
+if uploaded_file:
+    faltantes_df = pd.read_excel(uploaded_file)
+    inventario_api_df = load_inventory_file()
 
-if archivo_faltantes:
-    faltantes_df = pd.read_excel(archivo_faltantes)
-    columnas_adicionales = ['columna_extra_1', 'columna_extra_2']  # Reemplaza con columnas adicionales necesarias
+    bodegas_disponibles = inventario_api_df['bodega'].unique().tolist()
+    bodega_seleccionada = st.multiselect("Seleccione la bodega", options=bodegas_disponibles, default=[])
 
-    st.subheader("Procesando archivo de faltantes...")
-    resultado_df = procesar_faltantes(faltantes_df, inventario_api_df, columnas_adicionales, bodega_seleccionada)
+    columnas_adicionales = st.multiselect(
+        "Selecciona columnas adicionales para incluir en el archivo final:",
+        options=["presentacionart", "numlote", "fechavencelote"],
+        default=[]
+    )
 
-    if not resultado_df.empty:
-        st.success("Archivo procesado exitosamente. A continuación, los resultados:")
-        st.dataframe(resultado_df)
+    resultado_final_df = procesar_faltantes(faltantes_df, inventario_api_df, columnas_adicionales, bodega_seleccionada)
 
-        # Botón para descargar el archivo procesado
-        buffer = BytesIO()
-        with pd.ExcelWriter(buffer, engine='xlsxwriter') as writer:
-            resultado_df.to_excel(writer, index=False, sheet_name="Resultado")
-            writer.save()
-            buffer.seek(0)
-        
+    if not resultado_final_df.empty:
+        st.write("Archivo procesado correctamente.")
+        st.dataframe(resultado_final_df)
+
+        # Función para exportar a Excel
+        def to_excel(df):
+            output = BytesIO()
+            with pd.ExcelWriter(output, engine='openpyxl') as writer:
+                df.to_excel(writer, index=False, sheet_name='Alternativas')
+            return output.getvalue()
+
         st.download_button(
-            label="Descargar archivo procesado",
-            data=buffer,
-            file_name="resultado_faltantes.xlsx",
+            label="Descargar archivo de alternativas",
+            data=to_excel(resultado_final_df),
+            file_name='alternativas_disponibles.xlsx',
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
         )
-    else:
-        st.warning("No se encontraron alternativas disponibles en el inventario.")
