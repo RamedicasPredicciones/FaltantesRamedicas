@@ -1,8 +1,8 @@
-import streamlit as st
 import pandas as pd
+import requests
+import streamlit as st
 import math
 from io import BytesIO
-import requests
 
 # Enlace del inventario API y del archivo de Excel con codArt y demás detalles
 API_URL = "https://apkit.ramedicas.com/api/items/ws-batchsunits?token=3f8857af327d7f1adb005b81a12743bc17fef5c48f228103198100d4b032f556"
@@ -124,6 +124,15 @@ def procesar_faltantes(faltantes_df, inventario_api_df, excel_inventory_df, colu
 
     return resultado_final_df
 
+# Función para generar el archivo de Excel
+def generar_excel(df):
+    output = BytesIO()
+    with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
+        df.to_excel(writer, sheet_name="Alternativas", index=False)
+        writer.save()
+    processed_data = output.getvalue()
+    return processed_data
+
 # Interfaz de Streamlit
 st.markdown(
     """
@@ -152,15 +161,11 @@ st.markdown(
                 Descargar plantilla de faltantes
             </button>
         </a>
-        <button onclick="window.location.reload()" style="background-color: #3A86FF; color: white; padding: 10px 15px; border: none; border-radius: 5px; cursor: pointer;">
-            Actualizar inventario
-        </button>
     </div>
-    """,
-    unsafe_allow_html=True
+    """, unsafe_allow_html=True
 )
 
-# Cargar los archivos cargados por el usuario
+# Subir archivo de faltantes
 uploaded_file = st.file_uploader("Sube un archivo de faltantes en Excel", type="xlsx")
 
 if uploaded_file is not None:
@@ -180,6 +185,15 @@ if uploaded_file is not None:
         if not resultado_final_df.empty:
             st.write("Alternativas encontradas:")
             st.dataframe(resultado_final_df)
+            
+            # Botón para descargar archivo Excel con resultados
+            archivo_excel = generar_excel(resultado_final_df)
+            st.download_button(
+                label="Descargar archivo con alternativas",
+                data=archivo_excel,
+                file_name="Alternativas_Faltantes.xlsx",
+                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            )
         else:
             st.error("No se encontraron alternativas.")
     else:
