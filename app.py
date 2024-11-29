@@ -1,8 +1,8 @@
 import streamlit as st
 import pandas as pd
-import math
 import requests
 from io import BytesIO
+import math
 
 # URL del archivo Excel para enriquecer la API
 EXCEL_URL = "https://docs.google.com/spreadsheets/d/19myWtMrvsor2P_XHiifPgn8YKdTWE39O/export?format=xlsx"
@@ -61,8 +61,13 @@ def enriquecer_inventario(api_df, excel_df):
 
     return api_df
 
+# Función para cargar el archivo de faltantes subido por el usuario
+def load_faltantes_file(uploaded_file):
+    faltantes_df = pd.read_excel(uploaded_file)
+    return faltantes_df
+
 # Función para procesar faltantes
-def procesar_faltantes(faltantes_df, inventario_api_df, columnas_adicionales, bodega_seleccionada):
+def procesar_faltantes(faltantes_df, inventario_api_df):
     faltantes_df.columns = faltantes_df.columns.str.lower().str.strip()
     inventario_api_df.columns = inventario_api_df.columns.str.lower().str.strip()
 
@@ -74,9 +79,6 @@ def procesar_faltantes(faltantes_df, inventario_api_df, columnas_adicionales, bo
 
     cur_faltantes = faltantes_df['cur'].unique()
     alternativas_inventario_df = inventario_api_df[inventario_api_df['cur_excel'].isin(cur_faltantes)]
-
-    if bodega_seleccionada:
-        alternativas_inventario_df = alternativas_inventario_df[alternativas_inventario_df['bodega'].isin(bodega_seleccionada)]
 
     alternativas_disponibles_df = alternativas_inventario_df[alternativas_inventario_df['unidadespresentacionlote'] > 0]
 
@@ -134,11 +136,9 @@ def procesar_faltantes(faltantes_df, inventario_api_df, columnas_adicionales, bo
 
     # Selección de las columnas finales a mostrar
     columnas_finales = ['cur', 'codart', 'faltante', 'embalaje', 'codart_alternativa', 'opcion_alternativa', 
-                        'embalaje_alternativa', 'cantidad_necesaria', 'Existencias codart alternativa', 'bodega', 'suplido', 
+                        'embalaje_alternativa', 'cantidad_necesaria', 'Existencias codart alternativa', 'suplido', 
                         'faltante_restante alternativa']
-    columnas_finales.extend([col.lower() for col in columnas_adicionales])
-    columnas_presentes = [col for col in columnas_finales if col in resultado_final_df.columns]
-    resultado_final_df = resultado_final_df[columnas_presentes]
+    resultado_final_df = resultado_final_df[columnas_finales]
 
     return resultado_final_df
 
@@ -157,19 +157,25 @@ st.markdown(
     """, unsafe_allow_html=True
 )
 
-# Función para devolver la URL de la plantilla
-def descargar_plantilla():
-    return EXCEL_URL
+# Subir archivo de faltantes
+uploaded_file = st.file_uploader("Sube el archivo de faltantes", type=["xlsx"])
 
-# Sección de botones alineados a la izquierda
-st.markdown(
-    f"""
-    <div style="display: flex; flex-direction: column; align-items: flex-start; gap: 10px; margin-top: 20px;">
-        <a href="{descargar_plantilla()}" download>
-            <button style="background-color: #FF5800; color: white; padding: 10px 15px; border: none; border-radius: 5px; cursor: pointer;">
-                Descargar plantilla
-            </button>
-        </a>
-    </div>
-    """, unsafe_allow_html=True
-)
+if uploaded_file is not None:
+    faltantes_df = load_faltantes_file(uploaded_file)
+    st.write("Datos de faltantes cargados:", faltantes_df.head())
+
+    # Cargar datos de la API
+    api_df = load_api_data()
+
+    # Cargar y enriquecer el archivo con el Excel
+    excel_df = load_excel_file()
+    api_df_enriquecido = enriquecer_inventario(api_df, excel_df)
+
+    # Procesar los faltantes
+    resultado_df = procesar_faltantes(faltantes_df, api_df_enriquecido)
+
+    # Mostrar los resultados
+    if not resultado_df.empty:
+        st.write("Resultado final de las alternativas para los faltantes:", resultado_df)
+    else:
+        st.write("No se encontraron alternativas suficientes para los faltantes.")
