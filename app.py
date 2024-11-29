@@ -25,13 +25,20 @@ def load_inventory_file():
         response.raise_for_status()
         api_data = response.json()
         inventario_api_df = pd.DataFrame(api_data)
+
+        st.write("Columnas originales del inventario de la API:", inventario_api_df.columns.tolist())
         
-        # Renombrar la columna "Caja" a "Existencias codart alternativa"
-        inventario_api_df.rename(columns={"Caja": "Existencias codart alternativa"}, inplace=True)
-        
+        # Renombrar la columna "Caja" a "Existencias codart alternativa", si existe
+        if "Caja" in inventario_api_df.columns:
+            inventario_api_df.rename(columns={"Caja": "Existencias codart alternativa"}, inplace=True)
+        else:
+            st.warning("La columna 'Caja' no está presente en el inventario de la API. Verifique los datos.")
+
         # Cargar datos adicionales desde el Excel
         datos_adicionales_df = pd.read_excel(EXCEL_URL)
         datos_adicionales_df.columns = datos_adicionales_df.columns.str.lower().str.strip()  # Normalizar columnas
+        
+        st.write("Columnas del archivo Excel adicional:", datos_adicionales_df.columns.tolist())
         
         # Verificar que las columnas necesarias estén presentes
         columnas_requeridas = ['codart', 'cur', 'carta', 'embalaje']
@@ -48,6 +55,8 @@ def load_inventory_file():
             right_on="codart", 
             how="left"
         )
+        
+        st.write("Columnas combinadas después del merge:", inventario_api_df.columns.tolist())
         
         # Eliminar duplicados innecesarios si surgieron tras el merge
         inventario_api_df.drop_duplicates(inplace=True)
@@ -70,6 +79,13 @@ def procesar_faltantes(faltantes_df, inventario_api_df, columnas_adicionales, bo
     if not columnas_necesarias.issubset(faltantes_df.columns):
         st.error(f"El archivo de faltantes debe contener las columnas: {', '.join(columnas_necesarias)}")
         return pd.DataFrame()  # Devuelve un DataFrame vacío si faltan columnas
+
+    # Depurar columnas del inventario antes de continuar
+    st.write("Columnas actuales del inventario:", inventario_api_df.columns.tolist())
+
+    if "existencias codart alternativa" not in inventario_api_df.columns:
+        st.error("El inventario no contiene la columna 'Existencias codart alternativa'. Verifique los datos.")
+        return pd.DataFrame()
 
     cur_faltantes = faltantes_df['cur'].unique()
     alternativas_inventario_df = inventario_api_df[inventario_api_df['cur'].isin(cur_faltantes)]
@@ -124,13 +140,11 @@ def procesar_faltantes(faltantes_df, inventario_api_df, columnas_adicionales, bo
         axis=1
     )
 
-    # Renombrar la columna faltante_restante a faltante_restante alternativa
     resultado_final_df['faltante_restante alternativa'] = resultado_final_df.apply(
         lambda row: row['cantidad_necesaria'] - row['Existencias codart alternativa'] if row['suplido'] == 'NO' else 0,
         axis=1
     )
 
-    # Selección de las columnas finales a mostrar
     columnas_finales = ['cur', 'codart', 'faltante', 'embalaje', 'codart_alternativa', 'opcion_alternativa', 
                         'embalaje_alternativa', 'cantidad_necesaria', 'Existencias codart alternativa', 'bodega', 'suplido', 
                         'faltante_restante alternativa']
@@ -141,38 +155,18 @@ def procesar_faltantes(faltantes_df, inventario_api_df, columnas_adicionales, bo
     return resultado_final_df
 
 # Interfaz de Streamlit
-st.markdown(
-    """
-    <h1 style="text-align: center; color: #FF5800; font-family: Arial, sans-serif;">
-        RAMEDICAS S.A.S.
-    </h1>
-    <h3 style="text-align: center; font-family: Arial, sans-serif; color: #3A86FF;">
-        Generador de Alternativas para Faltantes
-    </h3>
-    <p style="text-align: center; font-family: Arial, sans-serif; color: #6B6B6B;">
-        Esta herramienta te permite buscar el código alternativa para cada faltante de los pedidos en Ramédicas con su respectivo inventario actual.
-    </p>
-    """, unsafe_allow_html=True
-)
-
-# Botones de descarga y actualización
+st.title("RAMEDICAS S.A.S. - Generador de Alternativas para Faltantes")
 st.markdown(
     f"""
-    <div style="display: flex; flex-direction: column; align-items: flex-start; gap: 10px; margin-top: 20px;">
-        <a href="{descargar_plantilla()}" download>
-            <button style="background-color: #FF5800; color: white; padding: 10px 15px; border: none; border-radius: 5px; cursor: pointer;">
-                Descargar plantilla de faltantes
-            </button>
-        </a>
-        <button onclick="window.location.reload()" style="background-color: #3A86FF; color: white; padding: 10px 15px; border: none; border-radius: 5px; cursor: pointer;">
-            Actualizar inventario
+    <a href="{descargar_plantilla()}" download>
+        <button style="background-color: #FF5800; color: white; padding: 10px 15px; border: none; border-radius: 5px; cursor: pointer;">
+            Descargar plantilla de faltantes
         </button>
-    </div>
+    </a>
     """,
     unsafe_allow_html=True
 )
 
-# Archivo cargado por el usuario
 uploaded_file = st.file_uploader("Sube tu archivo de faltantes", type="xlsx")
 
 if uploaded_file:
@@ -195,7 +189,6 @@ if uploaded_file:
             st.write("Archivo procesado correctamente.")
             st.dataframe(resultado_final_df)
 
-            # Función para exportar a Excel
             def to_excel(df):
                 output = BytesIO()
                 with pd.ExcelWriter(output, engine='openpyxl') as writer:
