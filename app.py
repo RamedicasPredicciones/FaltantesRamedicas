@@ -177,5 +177,11 @@ if uploaded_file is not None:
     # Mostrar los resultados
     if not resultado_df.empty:
         st.write("Resultado final de las alternativas para los faltantes:", resultado_df)
-    else:
-        st.write("No se encontraron alternativas suficientes para los faltantes.")
+        
+        # Botón para descargar el archivo resultante
+        st.download_button(
+            label="Descargar archivo de resultados",
+            data=resultado_df.to_excel(index=False),
+            file_name="alternativas_faltantes.xlsx",
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        )
