@@ -1,73 +1,58 @@
-import streamlit as st
-import pandas as pd
 import requests
+import pandas as pd
 from io import BytesIO
-import math
 
-# URL del archivo Excel para enriquecer la API
-EXCEL_URL = "https://docs.google.com/spreadsheets/d/19myWtMrvsor2P_XHiifPgn8YKdTWE39O/export?format=xlsx"
+# 1. Descargar inventario desde la API (formato JSON -> Excel)
+url_inventario = "https://apkit.ramedicas.com/api/items/ws-batchsunits?token=3f8857af327d7f1adb005b81a12743bc17fef5c48f228103198100d4b032f556"
+response = requests.get(url_inventario, verify=False)
 
-# URL de la API que quieres leer
-API_URL = "https://apkit.ramedicas.com/api/items/ws-batchsunits?token=3f8857af327d7f1adb005b81a12743bc17fef5c48f228103198100d4b032f556"
+if response.status_code == 200:
+    # Convertir la respuesta en formato JSON a un DataFrame
+    data_inventario = response.json()
+    inventario_df = pd.DataFrame(data_inventario)
 
-# Función para cargar los datos de la API
-def load_api_data():
-    response = requests.get(API_URL, verify=False)
-    if response.status_code == 200:
-        api_data = response.json()
-        api_df = pd.DataFrame(api_data)
-        return api_df
-    else:
-        st.error(f"Error al obtener datos de la API: {response.status_code}")
-        return pd.DataFrame()
+    # Normalizar las columnas para evitar discrepancias en mayúsculas/minúsculas
+    inventario_df.columns = inventario_df.columns.str.lower().str.strip()
 
-# Función para cargar el archivo Excel con las columnas adicionales
-def load_excel_file():
-    excel_df = pd.read_excel(EXCEL_URL)
-    return excel_df
+    # Guardar el DataFrame como un archivo Excel
+    inventario_df.to_excel("productos_completos.xlsx", index=False)
 
-# Función para enriquecer el inventario API con datos del Excel
-def enriquecer_inventario(api_df, excel_df):
-    # Normalizar nombres de columnas (eliminar espacios y uniformar)
-    api_df.columns = api_df.columns.str.lower().str.strip()
-    excel_df.columns = excel_df.columns.str.lower().str.strip()
+    # Mostrar el DataFrame (opcional)
+    print(inventario_df.head())
+else:
+    print(f"Error al obtener datos de la API: {response.status_code}")
 
-    # Renombrar columnas de la API según el formato necesario
-    api_df.rename(columns={'codart': 'codart_api'}, inplace=True)
 
-    # Realizar un merge por cada columna del Excel para enriquecer la API
-    columnas_a_enriquecer = ['embalaje', 'cur', 'carta']
-    for columna in columnas_a_enriquecer:
-        if columna in excel_df.columns:
-            api_df = pd.merge(
-                api_df,
-                excel_df[['codart', columna]].rename(columns={'codart': 'codart_excel'}),
-                left_on='codart_api',  # Clave en la API
-                right_on='codart_excel',  # Clave en el Excel
-                how='left'
-            )
-            # Renombrar la columna agregada para mantener claridad
-            api_df.rename(columns={columna: f'{columna}_excel'}, inplace=True)
-        else:
-            st.warning(f"La columna '{columna}' no se encontró en el archivo Excel.")
+# 2. Cargar el archivo de Google Sheets con las columnas "cur" y "embalaje"
+url_plantilla = "https://docs.google.com/spreadsheets/d/19myWtMrvsor2P_XHiifPgn8YKdTWE39O/edit?usp=sharing&ouid=109532697276677589725&rtpof=true&sd=true"
+url_plantilla = url_plantilla.replace('/edit?usp=sharing', '/export?format=xlsx')
 
-    # Limpiar la columna auxiliar 'codart_excel'
-    api_df.drop(columns=['codart_excel'], inplace=True, errors='ignore')
+# Cargar el archivo Excel desde Google Sheets
+plantilla_df = pd.read_excel(url_plantilla)
 
-    # Verificar si faltan valores en las columnas enriquecidas
-    for columna in columnas_a_enriquecer:
-        if api_df[f'{columna}_excel'].isnull().any():
-            st.warning(f"Algunos códigos de artículo no tienen coincidencia para la columna '{columna}' en el Excel.")
+# Normalizar las columnas para evitar discrepancias en mayúsculas/minúsculas
+plantilla_df.columns = plantilla_df.columns.str.lower().str.strip()
 
-    return api_df
+# Mostrar las primeras filas del archivo de la plantilla (opcional)
+print(plantilla_df.head())
 
-# Función para cargar el archivo de faltantes subido por el usuario
-def load_faltantes_file(uploaded_file):
-    faltantes_df = pd.read_excel(uploaded_file)
-    return faltantes_df
+# 3. Hacer el "merge" para agregar las columnas 'cur' y 'embalaje' al inventario
+inventario_completo_df = pd.merge(
+    inventario_df,
+    plantilla_df[['codart', 'cur', 'embalaje']],  # Seleccionamos solo las columnas relevantes
+    on='codart',  # Nos aseguramos de hacer la fusión por la columna 'codart' en minúsculas
+    how='left'  # 'left' para mantener todos los registros del inventario original
+)
 
-# Función para procesar faltantes
-def procesar_faltantes(faltantes_df, inventario_api_df):
+# Mostrar el DataFrame final (opcional)
+print(inventario_completo_df.head())
+
+# Guardar el inventario combinado en un archivo Excel
+inventario_completo_df.to_excel("inventario_completo.xlsx", index=False)
+
+# Función para procesar el archivo de faltantes
+def procesar_faltantes(faltantes_df, inventario_api_df, columnas_adicionales, bodega_seleccionada):
+    # Normalizar las columnas
     faltantes_df.columns = faltantes_df.columns.str.lower().str.strip()
     inventario_api_df.columns = inventario_api_df.columns.str.lower().str.strip()
 
@@ -78,22 +63,24 @@ def procesar_faltantes(faltantes_df, inventario_api_df):
         return pd.DataFrame()  # Devuelve un DataFrame vacío si faltan columnas
 
     cur_faltantes = faltantes_df['cur'].unique()
-    alternativas_inventario_df = inventario_api_df[inventario_api_df['cur_excel'].isin(cur_faltantes)]
+    alternativas_inventario_df = inventario_api_df[inventario_api_df['cur'].isin(cur_faltantes)]
+
+    if bodega_seleccionada:
+        alternativas_inventario_df = alternativas_inventario_df[alternativas_inventario_df['bodega'].isin(bodega_seleccionada)]
 
     alternativas_disponibles_df = alternativas_inventario_df[alternativas_inventario_df['unidadespresentacionlote'] > 0]
 
     alternativas_disponibles_df.rename(columns={
-        'codart_api': 'codart_alternativa',
+        'codart': 'codart_alternativa',
         'opcion': 'opcion_alternativa',
-        'embalaje_excel': 'embalaje_alternativa',
+        'embalaje': 'embalaje_alternativa',
         'unidadespresentacionlote': 'Existencias codart alternativa'
     }, inplace=True)
 
     alternativas_disponibles_df = pd.merge(
         faltantes_df[['cur', 'codart', 'faltante', 'embalaje']],
         alternativas_disponibles_df,
-        left_on='cur',
-        right_on='cur_excel',
+        on='cur',
         how='inner'
     )
 
@@ -136,52 +123,11 @@ def procesar_faltantes(faltantes_df, inventario_api_df):
 
     # Selección de las columnas finales a mostrar
     columnas_finales = ['cur', 'codart', 'faltante', 'embalaje', 'codart_alternativa', 'opcion_alternativa', 
-                        'embalaje_alternativa', 'cantidad_necesaria', 'Existencias codart alternativa', 'suplido', 
+                        'embalaje_alternativa', 'cantidad_necesaria', 'Existencias codart alternativa', 'bodega', 'suplido', 
                         'faltante_restante alternativa']
-    resultado_final_df = resultado_final_df[columnas_finales]
+    columnas_finales.extend([col.lower() for col in columnas_adicionales])
+    columnas_presentes = [col for col in columnas_finales if col in resultado_final_df.columns]
+    resultado_final_df = resultado_final_df[columnas_presentes]
 
     return resultado_final_df
 
-# Interfaz de Streamlit
-st.markdown(
-    """
-    <h1 style="text-align: center; color: #FF5800; font-family: Arial, sans-serif;">
-        RAMEDICAS S.A.S.
-    </h1>
-    <h3 style="text-align: center; font-family: Arial, sans-serif; color: #3A86FF;">
-        Generador de Alternativas para Faltantes
-    </h3>
-    <p style="text-align: center; font-family: Arial, sans-serif; color: #6B6B6B;">
-        Esta herramienta te permite buscar el código alternativa para cada faltante de los pedidos en Ramédicas con su respectivo inventario actual.
-    </p>
-    """, unsafe_allow_html=True
-)
-
-# Subir archivo de faltantes
-uploaded_file = st.file_uploader("Sube el archivo de faltantes", type=["xlsx"])
-
-if uploaded_file is not None:
-    faltantes_df = load_faltantes_file(uploaded_file)
-    st.write("Datos de faltantes cargados:", faltantes_df.head())
-
-    # Cargar datos de la API
-    api_df = load_api_data()
-
-    # Cargar y enriquecer el archivo con el Excel
-    excel_df = load_excel_file()
-    api_df_enriquecido = enriquecer_inventario(api_df, excel_df)
-
-    # Procesar los faltantes
-    resultado_df = procesar_faltantes(faltantes_df, api_df_enriquecido)
-
-    # Mostrar los resultados
-    if not resultado_df.empty:
-        st.write("Resultado final de las alternativas para los faltantes:", resultado_df)
-        
-        # Botón para descargar el archivo resultante
-        st.download_button(
-            label="Descargar archivo de resultados",
-            data=resultado_df.to_excel(index=False),
-            file_name="alternativas_faltantes.xlsx",
-            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-        )
