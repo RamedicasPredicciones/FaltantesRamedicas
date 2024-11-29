@@ -20,7 +20,6 @@ def descargar_plantilla():
 # Función para cargar el inventario desde la API y combinarlo con el archivo Excel adicional
 def load_inventory_file():
     try:
-        # Cargar inventario desde la API
         response = requests.get(API_URL, verify=False)
         response.raise_for_status()
         api_data = response.json()
@@ -28,19 +27,16 @@ def load_inventory_file():
 
         st.write("Columnas originales del inventario de la API:", inventario_api_df.columns.tolist())
         
-        # Renombrar la columna "unidadesPresentacionLote" a "Existencias codart alternativa", si existe
         if "unidadesPresentacionLote" in inventario_api_df.columns:
             inventario_api_df.rename(columns={"unidadesPresentacionLote": "Existencias codart alternativa"}, inplace=True)
         else:
             st.warning("La columna 'unidadesPresentacionLote' no está presente en el inventario de la API. Verifique los datos.")
 
-        # Cargar datos adicionales desde el Excel
         datos_adicionales_df = pd.read_excel(EXCEL_URL)
-        datos_adicionales_df.columns = datos_adicionales_df.columns.str.lower().str.strip()  # Normalizar columnas
+        datos_adicionales_df.columns = datos_adicionales_df.columns.str.lower().str.strip()
         
         st.write("Columnas del archivo Excel adicional:", datos_adicionales_df.columns.tolist())
-        
-        # Verificar que las columnas necesarias estén presentes
+
         columnas_requeridas = ['codart', 'cur', 'carta', 'embalaje']
         columnas_disponibles = [col for col in columnas_requeridas if col in datos_adicionales_df.columns]
         
@@ -48,7 +44,6 @@ def load_inventory_file():
             st.warning("El archivo de Excel adicional no contiene las columnas requeridas.")
             return inventario_api_df
 
-        # Realizar el merge entre los dos datasets usando "codArt" y "codart"
         inventario_api_df = inventario_api_df.merge(
             datos_adicionales_df[columnas_disponibles], 
             left_on="codArt", 
@@ -58,15 +53,11 @@ def load_inventory_file():
         
         st.write("Columnas combinadas después del merge:", inventario_api_df.columns.tolist())
         
-        # Eliminar duplicados innecesarios si surgieron tras el merge
         inventario_api_df.drop_duplicates(inplace=True)
         return inventario_api_df
     
-    except requests.exceptions.RequestException as e:
-        st.error(f"Error al cargar el inventario desde la API: {e}")
-        return pd.DataFrame()
     except Exception as e:
-        st.error(f"Error al combinar inventario con datos adicionales: {e}")
+        st.error(f"Error al cargar datos: {e}")
         return pd.DataFrame()
 
 # Función para procesar el archivo de faltantes
@@ -74,18 +65,27 @@ def procesar_faltantes(faltantes_df, inventario_api_df, columnas_adicionales, bo
     faltantes_df.columns = faltantes_df.columns.str.lower().str.strip()
     inventario_api_df.columns = inventario_api_df.columns.str.lower().str.strip()
 
-    # Verificar que el archivo de faltantes tiene las columnas necesarias
     columnas_necesarias = {'cur', 'codart', 'faltante', 'embalaje'}
     if not columnas_necesarias.issubset(faltantes_df.columns):
         st.error(f"El archivo de faltantes debe contener las columnas: {', '.join(columnas_necesarias)}")
-        return pd.DataFrame()  # Devuelve un DataFrame vacío si faltan columnas
+        return pd.DataFrame()
 
-    # Depurar columnas del inventario antes de continuar
     st.write("Columnas actuales del inventario:", inventario_api_df.columns.tolist())
 
     if "existencias codart alternativa" not in inventario_api_df.columns:
-        st.error("El inventario no contiene la columna 'Existencias codart alternativa'. Verifique los datos.")
+        st.error("El inventario no contiene la columna 'Existencias codart alternativa'.")
         return pd.DataFrame()
+
+    if "opcion" in inventario_api_df.columns:
+        inventario_api_df.rename(columns={"opcion": "opcion_alternativa"}, inplace=True)
+
+    if "opcion_alternativa" not in inventario_api_df.columns:
+        st.warning("El inventario no contiene la columna 'opcion_alternativa'. Verifique los datos.")
+        return pd.DataFrame()
+
+    # Asegurar que 'opcion_alternativa' es numérica
+    inventario_api_df['opcion_alternativa'] = pd.to_numeric(inventario_api_df['opcion_alternativa'], errors='coerce')
+    inventario_api_df = inventario_api_df.dropna(subset=['opcion_alternativa'])
 
     cur_faltantes = faltantes_df['cur'].unique()
     alternativas_inventario_df = inventario_api_df[inventario_api_df['cur'].isin(cur_faltantes)]
@@ -97,7 +97,6 @@ def procesar_faltantes(faltantes_df, inventario_api_df, columnas_adicionales, bo
 
     alternativas_disponibles_df.rename(columns={
         'codart': 'codart_alternativa',
-        'opcion': 'opcion_alternativa',
         'embalaje': 'embalaje_alternativa',
         'existencias codart alternativa': 'Existencias codart alternativa'
     }, inplace=True)
@@ -109,10 +108,13 @@ def procesar_faltantes(faltantes_df, inventario_api_df, columnas_adicionales, bo
         how='inner'
     )
 
-    # Filtrar registros donde opcion_alternativa sea mayor a 0
+    # Asegurarse de que los valores sean numéricos antes de la comparación
+    alternativas_disponibles_df['opcion_alternativa'] = pd.to_numeric(
+        alternativas_disponibles_df['opcion_alternativa'], errors='coerce'
+    ).fillna(0)
+
     alternativas_disponibles_df = alternativas_disponibles_df[alternativas_disponibles_df['opcion_alternativa'] > 0]
 
-    # Agregar columna de cantidad necesaria ajustada por embalaje
     alternativas_disponibles_df['cantidad_necesaria'] = alternativas_disponibles_df.apply(
         lambda row: math.ceil(row['faltante'] * row['embalaje'] / row['embalaje_alternativa'])
         if pd.notnull(row['embalaje']) and pd.notnull(row['embalaje_alternativa']) and row['embalaje_alternativa'] > 0
@@ -125,16 +127,11 @@ def procesar_faltantes(faltantes_df, inventario_api_df, columnas_adicionales, bo
     mejores_alternativas = []
     for codart_faltante, group in alternativas_disponibles_df.groupby('codart'):
         faltante_cantidad = group['faltante'].iloc[0]
-
-        # Buscar en la bodega seleccionada
         mejor_opcion_bodega = group[group['Existencias codart alternativa'] >= faltante_cantidad]
         mejor_opcion = mejor_opcion_bodega.head(1) if not mejor_opcion_bodega.empty else group.nlargest(1, 'Existencias codart alternativa')
-        
         mejores_alternativas.append(mejor_opcion.iloc[0])
 
     resultado_final_df = pd.DataFrame(mejores_alternativas)
-
-    # Nuevas columnas para verificar si el faltante fue suplido y el faltante restante
     resultado_final_df['suplido'] = resultado_final_df.apply(
         lambda row: 'SI' if row['Existencias codart alternativa'] >= row['cantidad_necesaria'] else 'NO',
         axis=1
