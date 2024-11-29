@@ -28,11 +28,11 @@ def load_inventory_file():
 
         st.write("Columnas originales del inventario de la API:", inventario_api_df.columns.tolist())
         
-        # Renombrar la columna "Caja" a "Existencias codart alternativa", si existe
-        if "Caja" in inventario_api_df.columns:
-            inventario_api_df.rename(columns={"Caja": "Existencias codart alternativa"}, inplace=True)
+        # Renombrar la columna "unidadesPresentacionLote" a "Existencias codart alternativa", si existe
+        if "unidadesPresentacionLote" in inventario_api_df.columns:
+            inventario_api_df.rename(columns={"unidadesPresentacionLote": "Existencias codart alternativa"}, inplace=True)
         else:
-            st.warning("La columna 'Caja' no está presente en el inventario de la API. Verifique los datos.")
+            st.warning("La columna 'unidadesPresentacionLote' no está presente en el inventario de la API. Verifique los datos.")
 
         # Cargar datos adicionales desde el Excel
         datos_adicionales_df = pd.read_excel(EXCEL_URL)
@@ -155,18 +155,38 @@ def procesar_faltantes(faltantes_df, inventario_api_df, columnas_adicionales, bo
     return resultado_final_df
 
 # Interfaz de Streamlit
-st.title("RAMEDICAS S.A.S. - Generador de Alternativas para Faltantes")
+st.markdown(
+    """
+    <h1 style="text-align: center; color: #FF5800; font-family: Arial, sans-serif;">
+        RAMEDICAS S.A.S.
+    </h1>
+    <h3 style="text-align: center; font-family: Arial, sans-serif; color: #3A86FF;">
+        Generador de Alternativas para Faltantes
+    </h3>
+    <p style="text-align: center; font-family: Arial, sans-serif; color: #6B6B6B;">
+        Esta herramienta te permite buscar el código alternativa para cada faltante de los pedidos en Ramédicas con su respectivo inventario actual.
+    </p>
+    """, unsafe_allow_html=True
+)
+
+# Botones de descarga y actualización
 st.markdown(
     f"""
-    <a href="{descargar_plantilla()}" download>
-        <button style="background-color: #FF5800; color: white; padding: 10px 15px; border: none; border-radius: 5px; cursor: pointer;">
-            Descargar plantilla de faltantes
+    <div style="display: flex; flex-direction: column; align-items: flex-start; gap: 10px; margin-top: 20px;">
+        <a href="{descargar_plantilla()}" download>
+            <button style="background-color: #FF5800; color: white; padding: 10px 15px; border: none; border-radius: 5px; cursor: pointer;">
+                Descargar plantilla de faltantes
+            </button>
+        </a>
+        <button onclick="window.location.reload()" style="background-color: #3A86FF; color: white; padding: 10px 15px; border: none; border-radius: 5px; cursor: pointer;">
+            Actualizar inventario
         </button>
-    </a>
+    </div>
     """,
     unsafe_allow_html=True
 )
 
+# Archivo cargado por el usuario
 uploaded_file = st.file_uploader("Sube tu archivo de faltantes", type="xlsx")
 
 if uploaded_file:
