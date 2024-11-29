@@ -5,24 +5,12 @@ from io import BytesIO
 import requests
 
 # Enlace del inventario API y del archivo de Excel con codArt y demás detalles
-url = "https://apkit.ramedicas.com/api/items/ws-batchsunits?token=3f8857af327d7f1adb005b81a12743bc17fef5c48f228103198100d4b032f556"
-
-# Haz la solicitud a la API, deshabilitando la verificación de SSL
-response = requests.get(url, verify=False)
-
-# Convierte la respuesta a un DataFrame de pandas si la API devuelve JSON
-if response.status_code == 200:
-    data = response.json()
-    df = pd.DataFrame(data)
-    print(df)
-else:
-    print(f"Error: {response.status_code}")
-    
+API_URL = "https://apkit.ramedicas.com/api/items/ws-batchsunits?token=3f8857af327d7f1adb005b81a12743bc17fef5c48f228103198100d4b032f556"
 EXCEL_URL = "https://docs.google.com/spreadsheets/d/19myWtMrvsor2P_XHiifPgn8YKdTWE39O/export?format=xlsx"
 
 # Función para cargar los datos de la API
 def load_inventory_api():
-    response = requests.get(API_URL)
+    response = requests.get(API_URL, verify=False)  # Deshabilitamos la verificación SSL
     if response.status_code == 200:
         # Suponiendo que la respuesta de la API es en formato JSON
         inventario_api_df = pd.DataFrame(response.json())  
